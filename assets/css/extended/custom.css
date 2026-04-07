@@ -59,6 +59,19 @@ li.search-entry {
     opacity: 0.6;
 }
 
+.search-year-header {
+    list-style: none;
+    margin: 1rem 0 0.3rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--border);
+}
+
+.search-year-header h2 {
+    font-size: 1.3rem;
+    margin: 0;
+    color: var(--primary);
+}
+
 /* Tighten gap between cover image and summary text */
 .post-entry .entry-cover {
     margin-bottom: 0;
@@ -295,6 +308,70 @@ body.list .main {
     border: 1px solid var(--border);
     border-radius: 6px;
     background: var(--entry);
+}
+
+/* ---- Tag cloud ---- */
+.tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem 1rem;
+    padding: 2rem 0;
+}
+
+.tag-cloud-item {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--entry);
+    color: var(--primary);
+    text-decoration: none;
+    line-height: 1.4;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.tag-cloud-item:hover {
+    background: var(--border);
+    border-color: var(--primary);
+}
+
+.tag-cloud-item sup {
+    font-size: 0.6em;
+    opacity: 0.5;
+    margin-left: 2px;
+}
+
+/* ---- Tag detail page (year groups) ---- */
+.tag-year-posts {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.tag-year-posts .search-entry {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.tag-year-group {
+    margin-bottom: 1.5rem;
+}
+
+.tag-year-header {
+    font-size: 1.3rem;
+    margin: 1.5rem 0 0.8rem 0;
+    padding-bottom: 0.3rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--primary);
+}
+
+.tag-year-count {
+    font-size: 0.65em;
+    opacity: 0.5;
+    font-weight: normal;
 }
 
 .followit-widget .preview-heading h5 {

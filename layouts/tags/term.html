@@ -1,0 +1,37 @@
+{{- define "main" }}
+
+<header class="page-header">
+  {{- partial "breadcrumbs.html" . }}
+  <h1>{{ .Title }}</h1>
+  <div class="post-description">
+    {{ len .Pages }} {{ if eq (len .Pages) 1 }}post{{ else }}posts{{ end }}
+  </div>
+</header>
+
+{{- range .Pages.GroupByPublishDate "2006" }}
+{{- if ne .Key "0001" }}
+<div class="tag-year-group">
+  <h2 class="tag-year-header" id="{{ .Key }}">
+    {{ .Key }}
+    <sup class="tag-year-count">{{ len .Pages }}</sup>
+  </h2>
+  <ul class="tag-year-posts">
+    {{- range .Pages }}
+    <li class="search-entry">
+      {{- $cover := (.Resources.ByType "image").GetMatch (printf "*%s*" (.Params.cover.image)) }}
+      {{- if $cover }}
+      <img src="{{ $cover.Permalink }}" class="search-result-cover" alt="" loading="lazy">
+      {{- end }}
+      <div class="search-entry-text">
+        <header class="entry-header">{{ .Title }}&nbsp;»</header>
+        <p class="search-entry-date">{{ .Date.Format "2006-01-02" }}</p>
+      </div>
+      <a href="{{ .Permalink }}" aria-label="{{ .Title | plainify }}"></a>
+    </li>
+    {{- end }}
+  </ul>
+</div>
+{{- end }}
+{{- end }}
+
+{{- end }}

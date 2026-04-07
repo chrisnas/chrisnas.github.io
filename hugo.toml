@@ -21,6 +21,16 @@ theme = 'PaperMod'
   TocOpen = false
   comments = true              # enable Giscus comments/reactions on posts
 
+  [params.fuseOpts]
+    iscasesensitive = false
+    shouldsort = true
+    location = 0
+    distance = 1000
+    threshold = 0.1           # 0=exact, 1=match anything; 0.1 = very strict
+    minmatchcharlength = 3
+    ignorelocation = true
+    keys = ["title", "content"]
+
 [params.cover]
   hiddenInList = false   # show cover image in post list on home page
   hiddenInSingle = false # show cover image inside the post too
@@ -49,6 +59,10 @@ theme = 'PaperMod'
     url = "/search/"
     weight = 2
   [[menu.main]]
+    name = "Tags"
+    url = "/tags/"
+    weight = 3
+  [[menu.main]]
     name = "About"
     url = "/about/"
-    weight = 3
+    weight = 4

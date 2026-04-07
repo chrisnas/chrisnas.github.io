@@ -1,0 +1,26 @@
+{{- define "main" }}
+
+<header class="page-header">
+  <h1>Tags</h1>
+</header>
+
+{{- $tags := .Data.Terms.Alphabetical }}
+{{- $max := 0 }}
+{{- range $tags }}
+  {{- if gt .Count $max }}{{ $max = .Count }}{{ end }}
+{{- end }}
+
+<div class="tag-cloud">
+  {{- range $tags }}
+  {{- $weight := div (mul (sub .Count 1) 100) (sub $max 1) }}
+  {{- $size := add 80 (div (mul $weight 120) 100) }}
+  <a href="{{ .Page.Permalink }}"
+     class="tag-cloud-item"
+     style="font-size: {{ $size }}%;"
+     title="{{ .Count }} {{ if eq .Count 1 }}post{{ else }}posts{{ end }}">
+    {{ .Page.Title }} <sup>{{ .Count }}</sup>
+  </a>
+  {{- end }}
+</div>
+
+{{- end }}

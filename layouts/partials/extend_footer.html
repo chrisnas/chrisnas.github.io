@@ -17,6 +17,75 @@
   </div>
 </div>
 
+<!-- Persist search query in URL so Back button restores it -->
+<script>
+(function() {
+  var sInput = document.getElementById('searchInput');
+  if (!sInput) return;
+  var resList = document.getElementById('searchResults');
+
+  // Update URL as user types
+  sInput.addEventListener('keyup', function() {
+    var val = this.value.trim();
+    var url = new URL(window.location);
+    if (val) {
+      url.searchParams.set('q', val);
+    } else {
+      url.searchParams.delete('q');
+    }
+    history.replaceState(null, '', url);
+  });
+
+  // Group search results by year
+  var observer;
+  function groupByYear() {
+    observer.disconnect();
+
+    var items = resList.querySelectorAll('li.search-entry');
+    if (items.length === 0) {
+      observer.observe(resList, { childList: true });
+      return;
+    }
+
+    resList.querySelectorAll('.search-year-header').forEach(function(h) { h.remove(); });
+
+    var lastYear = '';
+    items.forEach(function(li) {
+      var dateEl = li.querySelector('.search-entry-date');
+      if (!dateEl) return;
+      var year = dateEl.textContent.trim().substring(0, 4);
+      if (year !== lastYear) {
+        var header = document.createElement('li');
+        header.className = 'search-year-header';
+        header.innerHTML = '<h2>' + year + '</h2>';
+        li.parentNode.insertBefore(header, li);
+        lastYear = year;
+      }
+    });
+
+    observer.observe(resList, { childList: true });
+  }
+
+  // Watch for search results changes and group by year
+  observer = new MutationObserver(function() { groupByYear(); });
+  observer.observe(resList, { childList: true });
+
+  // Restore query from URL on page load
+  var q = new URLSearchParams(window.location.search).get('q');
+  if (q) {
+    sInput.value = q;
+    var attempts = 0;
+    var retry = setInterval(function() {
+      sInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
+      attempts++;
+      if ((resList && resList.innerHTML) || attempts > 50) {
+        clearInterval(retry);
+      }
+    }, 100);
+  }
+})();
+</script>
+
 <!-- GoatCounter analytics -->
 <script data-goatcounter="https://chrisnas.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
