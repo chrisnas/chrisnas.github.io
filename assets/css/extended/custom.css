@@ -70,6 +70,21 @@ li.search-entry {
     border-bottom: none;
 }
 
+/* Follow.it subscribe button in home info */
+.follow-btn {
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+.follow-btn img {
+    height: 24px;
+    transition: opacity 0.15s;
+}
+
+.follow-btn:hover img {
+    opacity: 0.8;
+}
+
 /* Hide posts via JS pagination */
 .hidden-post {
     display: none !important;
