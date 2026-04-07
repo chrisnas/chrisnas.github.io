@@ -251,3 +251,89 @@ li.search-entry {
         gap: 0.2rem;
     }
 }
+
+/* ---- follow.it subscription widget ---- */
+.followit-widget {
+    max-width: 360px;
+    margin: 2rem auto 0;
+}
+
+.followit-widget .form-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.2rem 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--entry);
+}
+
+.followit-widget .preview-heading h5 {
+    margin: 0 0 0.8rem 0;
+    font-size: 0.9rem;
+    color: var(--primary);
+    font-family: inherit;
+    text-align: center;
+}
+
+.followit-widget .preview-input-field {
+    width: 100%;
+}
+
+.followit-widget .preview-input-field input {
+    width: 100%;
+    height: 36px;
+    padding: 0 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--theme);
+    color: var(--primary);
+    font-size: 0.85rem;
+    font-family: inherit;
+    text-align: center;
+    outline: none;
+}
+
+.followit-widget .preview-input-field input::placeholder {
+    color: var(--secondary);
+    opacity: 0.7;
+}
+
+.followit-widget .preview-submit-button {
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.followit-widget .preview-submit-button button {
+    width: 100%;
+    height: 36px;
+    border: none;
+    border-radius: 4px;
+    background: var(--primary);
+    color: var(--theme);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.followit-widget .preview-submit-button button:hover {
+    opacity: 0.85;
+}
+
+.followit-widget .powered-by-line {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    color: var(--secondary);
+    text-decoration: none;
+    opacity: 0.6;
+}
+
+.followit-widget .powered-by-line img {
+    margin-left: 0.3rem;
+    height: 1em;
+}
