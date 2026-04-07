@@ -59,6 +59,15 @@ li.search-entry {
     opacity: 0.6;
 }
 
+/* Tighten gap between cover image and summary text */
+.post-entry .entry-cover {
+    margin-bottom: 0;
+}
+
+.post-entry .entry-content {
+    margin-top: 0.3rem;
+}
+
 /* More space between post entries in the list */
 .post-entry {
     margin-bottom: 2.5rem;
@@ -83,6 +92,11 @@ li.search-entry {
 
 .follow-btn:hover img {
     opacity: 0.8;
+}
+
+/* Wider content on home page */
+body.list .main {
+    max-width: calc(var(--main-width) * 1.5);
 }
 
 /* Hide posts via JS pagination */
