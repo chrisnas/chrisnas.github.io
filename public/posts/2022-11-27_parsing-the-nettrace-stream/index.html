@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Parsing the “nettrace” stream of (not only) events | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, diagnostics, memory">
+<meta name="description" content="The previous episodes explained how to initiate the protocol to receive CLR events. It is now time to dig into the “nettrace” stream…">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2022-11-27_parsing-the-nettrace-stream/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2022-11-27_parsing-the-nettrace-stream/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Parsing the “nettrace” stream of (not only) events
+    </h1>
+    <div class="post-description">
+      The previous episodes explained how to initiate the protocol to receive CLR events. It is now time to dig into the “nettrace” stream…
+    </div>
+    <div class="post-meta"><span title='2022-11-27 13:59:44.429 +0000 UTC'>November 27, 2022</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2022-11-27_parsing-the-nettrace-stream/1_wgeRsZ8QOX-IeBluAI6nmg.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#everything-is-anobject" aria-label="Everything is an “object”">Everything is an “object”</a></li>
+                <li>
+                    <a href="#lets-go-back-to-a-higher-level-view" aria-label="Let’s go back to a higher-level view">Let’s go back to a higher-level view</a></li>
+                <li>
+                    <a href="#resources" aria-label="Resources">Resources</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p>The previous episodes explained how to <a href="/posts/2022-09-18_net-diagnostic-ipc-protocol/">contact the .NET Diagnostics IPC server</a> and <a href="/posts/2022-10-23_clr-events-go-for/">initiate the protocol to receive CLR events</a>. It is now time to dig into the “nettrace” stream format!</p>
+<p>As the <a href="https://github.com/dotnet/diagnostics/blob/main/documentation/design-docs/ipc-protocol.md">IPC command documentation</a> states, the response to the <strong>CollectTracing</strong> command is <em>followed by an Optional Continuation of a nettrace format stream of events</em>. In fact, before .NET Core 3, the <a href="https://github.com/microsoft/perfview/blob/main/src/TraceEvent/EventPipe/NetPerfFormat.md">netperf format</a> was used but I will focus on the nettrace format also used in .NET 5+.</p>
+<p>From a high-level view, it is a header followed by a stream of “objects”; each described by a header and ending with a byte with <strong>6</strong> as value:</p>
+<p><img loading="lazy" src="/posts/2022-11-27_parsing-the-nettrace-stream/1_Zh-waKB1J8VK4ZIYRlGZAA.png"></p>
+<p>Let’s start with the <em>nettrace</em> header:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#pragma pack(1)
+</span></span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">NettraceHeader</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint8_t</span> <span class="n">Magic</span><span class="p">[</span><span class="mi">8</span><span class="p">];</span>               <span class="c1">// &#34;Nettrace&#34; with not &#39;\0&#39;
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">FastSerializationLen</span><span class="p">;</span>  <span class="c1">// 20
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint8_t</span> <span class="n">FastSerialization</span><span class="p">[</span><span class="mi">20</span><span class="p">];</span>  <span class="c1">// &#34;!FastSerialization.1&#34; with not &#39;\0&#39;
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">NettraceHeaderMagic</span> <span class="o">=</span> <span class="s">&#34;Nettrace&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">FastSerializationMagic</span> <span class="o">=</span> <span class="s">&#34;!FastSerialization.1&#34;</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>It can be used to check the format and version of the received data (in case of format evolution over time):</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">CheckNettraceHeader</span><span class="p">(</span><span class="n">NettraceHeader</span><span class="o">&amp;</span> <span class="n">header</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">Magic</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">Magic</span><span class="p">),</span> <span class="n">NettraceHeaderMagic</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">FastSerializationLen</span> <span class="o">!=</span> <span class="n">strlen</span><span class="p">(</span><span class="n">FastSerializationMagic</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">FastSerialization</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">FastSerialization</span><span class="p">),</span> <span class="n">FastSerializationMagic</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>In memory, the “strings” are stored as an array of UTF8 characters without trailing ‘\0’</p>
+<p><img loading="lazy" src="/posts/2022-11-27_parsing-the-nettrace-stream/1_MznhHc2R0DLQP7UFKBiFeA.png"></p>
+<p>This drives the implementation of the comparison helper:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">IsSameAsString</span><span class="p">(</span><span class="kt">uint8_t</span><span class="o">*</span> <span class="n">bytes</span><span class="p">,</span> <span class="kt">uint16_t</span> <span class="n">length</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">characters</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">memcmp</span><span class="p">(</span><span class="n">bytes</span><span class="p">,</span> <span class="n">characters</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="everything-is-anobject">Everything is an “object”<a hidden class="anchor" aria-hidden="true" href="#everything-is-anobject">#</a></h2>
+<p>After the header, data is represented as “objects” whose description is stored in an <strong>ObjectHeader</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#pragma pack(1)
+</span></span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">ObjectHeader</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">NettraceTag</span> <span class="n">TagTraceObject</span><span class="p">;</span>         <span class="c1">// 5
+</span></span></span><span class="line"><span class="cl">    <span class="n">NettraceTag</span> <span class="n">TagTypeObjectForTrace</span><span class="p">;</span>  <span class="c1">// 5
+</span></span></span><span class="line"><span class="cl">    <span class="n">NettraceTag</span> <span class="n">TagType</span><span class="p">;</span>                <span class="c1">// 1
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">Version</span><span class="p">;</span>                   <span class="c1">//
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">MinReaderVersion</span><span class="p">;</span>          <span class="c1">//
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">NameLength</span><span class="p">;</span>                <span class="c1">// length of UTF8 name that follows
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>followed by the name of the object type in UTF8. Note that, like for “!FastSerialization.1” in <strong>NettraceHeader</strong>, its length is provided in the <strong>NameLength</strong> field of the <strong>ObjectHeader</strong>. For example, here is how the initial TraceObject header is stored in memory:</p>
+<p><img loading="lazy" src="/posts/2022-11-27_parsing-the-nettrace-stream/1_YjXZ6fDTOJFT3u-LwfTXyw.png"></p>
+<p>and its equivalent in code:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#pragma pack(1)
+</span></span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nl">TraceObjectHeader</span> <span class="p">:</span> <span class="n">ObjectHeader</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="c1">//NettraceTag TagTraceObject;         // 5
+</span></span></span><span class="line"><span class="cl">  <span class="c1">//NettraceTag TagTypeObjectForTrace;  // 5
+</span></span></span><span class="line"><span class="cl">  <span class="c1">//NettraceTag TagType;                // 1
+</span></span></span><span class="line"><span class="cl">  <span class="c1">//uint32_t Version;                   // 4
+</span></span></span><span class="line"><span class="cl">  <span class="c1">//uint32_t MinReaderVersion;          // 4
+</span></span></span><span class="line"><span class="cl">  <span class="c1">//uint32_t NameLength;                // 5
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint8_t</span> <span class="n">Name</span><span class="p">[</span><span class="mi">5</span><span class="p">];</span>                    <span class="c1">// &#39;Trace
+</span></span></span><span class="line"><span class="cl">    <span class="n">NettraceTag</span> <span class="n">TagEndTraceObject</span><span class="p">;</span>      <span class="c1">// 6
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that after the “object” type name, an “end of object” byte (i.e. = 6) appears before the payload.</p>
+<p>So, each kind of “object” shares the same <strong>ObjectHeader</strong> followed by a UTF8 type name:</p>
+<ul>
+<li>“EventBlock” : contains one or more events</li>
+<li>“MetadataBlock” : contains partial description of events (no name nor payload fields)</li>
+<li>“StackBlock” : contains call stacks (i.e. arrays of instruction pointers)</li>
+<li>“SPBlock” : contains check point inside the stream inside the stream (used for drop message detection and callstack cache invalidation)</li>
+</ul>
+<p>It means that you need to compare the strings to figure out the “object” type:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">EventBlockName</span> <span class="o">=</span> <span class="s">&#34;EventBlock&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">MetadataBlockName</span> <span class="o">=</span> <span class="s">&#34;MetadataBlock&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">StackBlockName</span> <span class="o">=</span> <span class="s">&#34;StackBlock&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">char</span><span class="o">*</span> <span class="n">SequencePointBlockName</span> <span class="o">=</span> <span class="s">&#34;SPBlock&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">ObjectType</span> <span class="n">EventPipeSession</span><span class="o">::</span><span class="n">GetObjectType</span><span class="p">(</span><span class="n">ObjectHeader</span><span class="o">&amp;</span> <span class="n">header</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// check validity
+</span></span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">TagTraceObject</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">BeginPrivateObject</span><span class="p">)</span> <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">TagTypeObjectForTrace</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">BeginPrivateObject</span><span class="p">)</span> <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">TagType</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">NullReference</span><span class="p">)</span> <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// figure out which type it is based on the name:
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//   EventBlock -&gt; &#34;EventBlock&#34;  (size = 10)
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//   MetadataBlock -&gt; &#34;MetadataBlock&#34; (size = 13)
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//   StackBlock -&gt; &#34;StackBlock&#34; (size = 10)
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//   SequencePointBlock -&gt; &#34;SPBlock&#34; (size = 7)
+</span></span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">NameLength</span> <span class="o">==</span> <span class="mi">13</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint8_t</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">13</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Read</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="n">MetadataBlockName</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">MetadataBlock</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">NameLength</span> <span class="o">==</span> <span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint8_t</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">10</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Read</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">EventBlockName</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">EventBlock</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">StackBlockName</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">StackBlock</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">NameLength</span> <span class="o">==</span> <span class="mi">7</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint8_t</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">7</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Read</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="n">SequencePointBlockName</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">SequencePointBlock</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The first object that appears in the stream contains details about the whole stream:</p>
+<p><img loading="lazy" src="/posts/2022-11-27_parsing-the-nettrace-stream/1_wgeRsZ8QOX-IeBluAI6nmg.png"></p>
+<p>After the header, some fields follow as a payload:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="cp">#pragma pack(1)
+</span></span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="n">ObjectFields</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">Year</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">Month</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">DayOfWeek</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">Day</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">Hour</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">Minute</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">Second</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">Millisecond</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">SyncTimeQPC</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">QPCFrequency</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">PointerSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">ProcessId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">NumProcessors</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">ExpectedCPUSamplingRate</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Beyond the timestamp information and the pointer size (required when call stack instruction pointers will be read as 8 (64-bit) or 4 (32-bit) bytes addresses) the other fields are not really interesting.</p>
+<h2 id="lets-go-back-to-a-higher-level-view">Let’s go back to a higher-level view<a hidden class="anchor" aria-hidden="true" href="#lets-go-back-to-a-higher-level-view">#</a></h2>
+<p>Here is the code to listen to the nettrace stream:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">EventPipeSession</span><span class="o">::</span><span class="n">Listen</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadHeader</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadTraceObjectHeader</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">ObjectFields</span> <span class="n">ofTrace</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadObjectFields</span><span class="p">(</span><span class="n">ofTrace</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// use the &#34;trace object&#34; fields to figure out the bitness of the application
+</span></span></span><span class="line"><span class="cl">    <span class="n">Is64Bit</span> <span class="o">=</span> <span class="n">ofTrace</span><span class="p">.</span><span class="n">PointerSize</span> <span class="o">==</span> <span class="mi">8</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_stackParser</span><span class="p">.</span><span class="n">SetPointerSize</span><span class="p">(</span><span class="n">ofTrace</span><span class="p">.</span><span class="n">PointerSize</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_metadataParser</span><span class="p">.</span><span class="n">SetPointerSize</span><span class="p">(</span><span class="n">ofTrace</span><span class="p">.</span><span class="n">PointerSize</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_eventParser</span><span class="p">.</span><span class="n">SetPointerSize</span><span class="p">(</span><span class="n">ofTrace</span><span class="p">.</span><span class="n">PointerSize</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// don&#39;t forget to check the end object tag
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint8_t</span> <span class="n">tag</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadByte</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span> <span class="o">||</span> <span class="p">(</span><span class="n">tag</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">EndObject</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// read one &#34;object&#34; after the other
+</span></span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">ReadNextObject</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;------------------------------------------------</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">________________________________________________</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">_stopRequested</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>I will come back to the different <strong>_XXXparser</strong> fields soon.</p>
+<p>The <strong>ReadNextObject</strong> helper is responsible for reading the expected <strong>ObjectHeader</strong> and the string that follows to figure out what is the type of this “object” and what payload to expect:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">EventPipeSession</span><span class="o">::</span><span class="n">ReadNextObject</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// get the type of object from the header
+</span></span></span><span class="line"><span class="cl">    <span class="n">ObjectHeader</span> <span class="n">header</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Read</span><span class="p">(</span><span class="o">&amp;</span><span class="n">header</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ObjectHeader</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Error</span> <span class="o">=</span> <span class="o">::</span><span class="n">GetLastError</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;Error while reading Object header: 0x&#34;</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">hex</span> <span class="o">&lt;&lt;</span> <span class="n">Error</span> <span class="o">&lt;&lt;</span> <span class="n">std</span><span class="o">::</span><span class="n">dec</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">ObjectType</span> <span class="n">ot</span> <span class="o">=</span> <span class="n">GetObjectType</span><span class="p">(</span><span class="n">header</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">ot</span> <span class="o">==</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;Invalid object header type:</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">DumpObjectHeader</span><span class="p">(</span><span class="n">header</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// don&#39;t forget to check the end object tag
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint8_t</span> <span class="n">tag</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadByte</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span> <span class="o">||</span> <span class="p">(</span><span class="n">tag</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">EndObject</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;Missing end of object tag: &#34;</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="kt">uint8_t</span><span class="p">)</span><span class="n">tag</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <strong>GetObjectType</strong> function checks the header validity and extracts the “object” type name:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">ObjectType</span> <span class="n">EventPipeSession</span><span class="o">::</span><span class="n">GetObjectType</span><span class="p">(</span><span class="n">ObjectHeader</span><span class="o">&amp;</span> <span class="n">header</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// check validity
+</span></span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">TagTraceObject</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">BeginPrivateObject</span><span class="p">)</span> <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">TagTypeObjectForTrace</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">BeginPrivateObject</span><span class="p">)</span> <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">TagType</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">NullReference</span><span class="p">)</span> <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// figure out which type it is based on the name:
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//   EventBlock -&gt; &#34;EventBlock&#34;  (size = 10)
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//   MetadataBlock -&gt; &#34;MetadataBlock&#34; (size = 13)
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//   StackBlock -&gt; &#34;StackBlock&#34; (size = 10)
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//   SequencePointBlock -&gt; &#34;SPBlock&#34; (size = 7)
+</span></span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">NameLength</span> <span class="o">==</span> <span class="mi">13</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint8_t</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">13</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Read</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">13</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="n">MetadataBlockName</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">MetadataBlock</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">NameLength</span> <span class="o">==</span> <span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint8_t</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">10</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Read</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">EventBlockName</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">EventBlock</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="n">StackBlockName</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">StackBlock</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="nf">if</span> <span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">NameLength</span> <span class="o">==</span> <span class="mi">7</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint8_t</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">7</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Read</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">IsSameAsString</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="n">SequencePointBlockName</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">SequencePointBlock</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">ObjectType</span><span class="o">::</span><span class="n">Unknown</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The same <strong>IsSameAsString</strong> helper is used to compare the read “object” name with the known types.</p>
+<p>The end of <strong>ReadNextObject</strong> simply parses the “object” payload as a memory block based on its type:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl">    <span class="k">switch</span> <span class="p">(</span><span class="n">ot</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="n">ObjectType</span><span class="o">::</span><span class="nl">EventBlock</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ParseEventBlock</span><span class="p">(</span><span class="n">header</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="n">ObjectType</span><span class="o">::</span><span class="nl">MetadataBlock</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ParseMetadataBlock</span><span class="p">(</span><span class="n">header</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="n">ObjectType</span><span class="o">::</span><span class="nl">StackBlock</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ParseStackBlock</span><span class="p">(</span><span class="n">header</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="n">ObjectType</span><span class="o">::</span><span class="nl">SequencePointBlock</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="n">ParseSequencePointBlock</span><span class="p">(</span><span class="n">header</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">default</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The next step will be to look into each “object” type payload.</p>
+<h2 id="resources">Resources<a hidden class="anchor" aria-hidden="true" href="#resources">#</a></h2>
+<ul>
+<li><a href="/posts/2022-07-28_digging-into-the-clr/">Episode 1</a> — <em>Digging into the CLR Diagnostics IPC Protocol in C#</em></li>
+<li><a href="/posts/2022-09-18_net-diagnostic-ipc-protocol/">Episode 2</a> — <em>.NET Diagnostic IPC protocol: the C++ way</em></li>
+<li>[Episode 3 ](/posts/2022-10-23_clr-events-go-for/ CLR events: go for the nettrace file format!</li>
+<li><a href="https://github.com/chrisnas/ClrEvents/tree/master/Events/NativeEventListener">Source code</a> for the C++ implementation of CLR events listener</li>
+<li>Diagnostics IPC protocol <a href="https://github.com/dotnet/diagnostics/blob/main/documentation/design-docs/ipc-protocol.md">documentation</a></li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2023-01-15_reading-object-in-memory/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Reading “object” in memory — starting with stacks</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2022-10-23_clr-events-go-for/">
+    <span class="title">Next »</span>
+    <br>
+    <span>CLR events: go for the nettrace file format!</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

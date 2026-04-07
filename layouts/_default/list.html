@@ -51,11 +51,211 @@
 {{- partial "home_info.html" . }}
 {{- end }}
 
+{{/* ---- Home page: sidebar + paginated posts ---- */}}
+{{- if .IsHome }}
+<div class="home-layout">
+
+  {{/* Left sidebar: year/month archive */}}
+  <aside class="archive-sidebar">
+    <div class="sidebar-sticky">
+      <h3 class="sidebar-title">Archive</h3>
+      <nav class="archive-nav">
+        <a class="archive-link archive-link--all active" role="button" data-filter="all">
+          All <sup>{{ len $pages }}</sup>
+        </a>
+        {{- range $pages.GroupByPublishDate "2006" }}
+        {{- if ne .Key "0001" }}
+        <div class="archive-year-group">
+          <a class="archive-link archive-link--year" role="button" data-filter="y-{{ .Key }}">
+            {{ .Key }} <sup>{{ len .Pages }}</sup>
+          </a>
+          <div class="archive-months">
+            {{- range .Pages.GroupByDate "January" }}
+            <a class="archive-link archive-link--month" role="button" data-filter="ym-{{ (index .Pages 0).Date.Format "2006-01" }}">
+              {{ .Key }} <sup>{{ len .Pages }}</sup>
+            </a>
+            {{- end }}
+          </div>
+        </div>
+        {{- end }}
+        {{- end }}
+      </nav>
+    </div>
+  </aside>
+
+  {{/* Right content: post list */}}
+  <div class="home-posts">
+
+    {{/* Page size selector */}}
+    <div class="page-size-bar">
+      <label for="page-size-select">Posts per page:</label>
+      <select id="page-size-select">
+        <option value="10">10</option>
+        <option value="20">20</option>
+        <option value="50">50</option>
+        <option value="all">All</option>
+      </select>
+      <span id="page-size-info"></span>
+    </div>
+
+    {{- $term := .Data.Term }}
+    {{- range $index, $page := $paginator.Pages }}
+
+    {{- $class := "post-entry" }}
+    {{- $user_preferred := or site.Params.disableSpecial1stPost site.Params.homeInfoParams }}
+    {{- if (and $.IsHome (eq $paginator.PageNumber 1) (eq $index 0) (not $user_preferred)) }}
+    {{- $class = "first-entry" }}
+    {{- else if $term }}
+    {{- $class = "post-entry tag-entry" }}
+    {{- end }}
+
+    <article class="{{ $class }}" data-date="{{ $page.Date.Format "2006-01" }}">
+      <header class="entry-header">
+        <h2 class="entry-hint-parent">
+          {{- .Title }}
+          {{- if .Draft }}
+          <span class="entry-hint" title="Draft">
+            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" fill="currentColor">
+              <path d="M160-410v-60h300v60H160Zm0-165v-60h470v60H160Zm0-165v-60h470v60H160Zm360 580v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q9 9 13 20t4 22q0 11-4.5 22.5T862.09-380L643-160H520Zm300-263-37-37 37 37ZM580-220h38l121-122-18-19-19-18-122 121v38Zm141-141-19-18 37 37-18-19Z" />
+            </svg>
+          </span>
+          {{- end }}
+        </h2>
+      </header>
+      {{- $isHidden := (.Param "cover.hiddenInList") | default (.Param "cover.hidden") | default false }}
+      {{- partial "cover.html" (dict "cxt" . "IsSingle" false "isHidden" $isHidden) }}
+      {{- if (ne (.Param "hideSummary") true) }}
+      <div class="entry-content">
+        <p>{{ .Summary | plainify | htmlUnescape }}{{ if .Truncated }}...{{ end }}</p>
+      </div>
+      {{- end }}
+      {{- if not (.Param "hideMeta") }}
+      <footer class="entry-footer">
+        {{- partial "post_meta.html" . -}}
+      </footer>
+      {{- end }}
+      <a class="entry-link" aria-label="post link to {{ .Title | plainify }}" href="{{ .Permalink }}"></a>
+    </article>
+    {{- end }}
+
+    {{/* JS pagination controls */}}
+    <footer class="page-footer">
+      <nav class="pagination" id="js-pagination"></nav>
+    </footer>
+
+  </div>{{/* .home-posts */}}
+</div>{{/* .home-layout */}}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var articles = Array.from(document.querySelectorAll('.home-posts article'));
+  var select = document.getElementById('page-size-select');
+  var info = document.getElementById('page-size-info');
+  var paginationEl = document.getElementById('js-pagination');
+  var sidebarLinks = document.querySelectorAll('.archive-link');
+
+  var currentFilter = 'all';
+  var currentPage = 1;
+  var pageSize = parseInt(localStorage.getItem('pageSize') || '10', 10);
+
+  if (pageSize === 9999) {
+    select.value = 'all';
+  } else {
+    select.value = String(pageSize);
+    if (!select.querySelector('option[value="' + pageSize + '"]')) {
+      select.value = '10'; pageSize = 10;
+    }
+  }
+
+  function getFiltered() {
+    if (currentFilter === 'all') return articles;
+    return articles.filter(function(a) {
+      var d = a.getAttribute('data-date');
+      if (currentFilter.indexOf('ym-') === 0) return d === currentFilter.slice(3);
+      if (currentFilter.indexOf('y-') === 0)  return d.indexOf(currentFilter.slice(2)) === 0;
+      return true;
+    });
+  }
+
+  function render() {
+    var filtered = getFiltered();
+    var total = filtered.length;
+    var ps = pageSize === 9999 ? total : pageSize;
+    var totalPages = Math.ceil(total / ps) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+    var start = (currentPage - 1) * ps;
+    var end = start + ps;
+
+    for (var i = 0; i < articles.length; i++) {
+      articles[i].classList.add('hidden-post');
+    }
+    for (var j = 0; j < filtered.length; j++) {
+      if (j >= start && j < end) {
+        filtered[j].classList.remove('hidden-post');
+      }
+    }
+
+    var showing = Math.min(end, total) - start;
+    info.textContent = showing + ' of ' + total + ' posts';
+
+    var html = '';
+    if (currentPage > 1) {
+      html += '<a class="prev" role="button" data-page="' + (currentPage - 1) + '">\u00ab Prev</a>';
+    }
+    if (totalPages > 1) {
+      for (var p = 1; p <= totalPages; p++) {
+        if (p === currentPage) {
+          html += '<span class="page-num current">' + p + '</span>';
+        } else {
+          html += '<a class="page-num" role="button" data-page="' + p + '">' + p + '</a>';
+        }
+      }
+    }
+    if (currentPage < totalPages) {
+      html += '<a class="next" role="button" data-page="' + (currentPage + 1) + '">Next \u00bb</a>';
+    }
+    paginationEl.innerHTML = html;
+  }
+
+  select.addEventListener('change', function() {
+    pageSize = this.value === 'all' ? 9999 : parseInt(this.value, 10);
+    localStorage.setItem('pageSize', String(pageSize));
+    currentPage = 1;
+    render();
+  });
+
+  paginationEl.addEventListener('click', function(e) {
+    if (e.target.dataset && e.target.dataset.page) {
+      e.preventDefault();
+      currentPage = parseInt(e.target.dataset.page, 10);
+      render();
+      var postsEl = document.querySelector('.home-posts');
+      if (postsEl) postsEl.scrollIntoView({ behavior: 'smooth' });
+    }
+  });
+
+  sidebarLinks.forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      currentFilter = this.dataset.filter;
+      currentPage = 1;
+      sidebarLinks.forEach(function(l) { l.classList.remove('active'); });
+      this.classList.add('active');
+      render();
+    });
+  });
+
+  render();
+});
+</script>
+
+{{- else }}
+{{/* Non-home pages: standard list without sidebar */}}
+
 {{- $term := .Data.Term }}
 {{- range $index, $page := $paginator.Pages }}
 
 {{- $class := "post-entry" }}
-
 {{- $user_preferred := or site.Params.disableSpecial1stPost site.Params.homeInfoParams }}
 {{- if (and $.IsHome (eq $paginator.PageNumber 1) (eq $index 0) (not $user_preferred)) }}
 {{- $class = "first-entry" }}
@@ -64,15 +264,13 @@
 {{- end }}
 
 <article class="{{ $class }}">
-  {{/* Title first, then cover image */}}
   <header class="entry-header">
     <h2 class="entry-hint-parent">
       {{- .Title }}
       {{- if .Draft }}
       <span class="entry-hint" title="Draft">
         <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 -960 960 960" fill="currentColor">
-          <path
-            d="M160-410v-60h300v60H160Zm0-165v-60h470v60H160Zm0-165v-60h470v60H160Zm360 580v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q9 9 13 20t4 22q0 11-4.5 22.5T862.09-380L643-160H520Zm300-263-37-37 37 37ZM580-220h38l121-122-18-19-19-18-122 121v38Zm141-141-19-18 37 37-18-19Z" />
+          <path d="M160-410v-60h300v60H160Zm0-165v-60h470v60H160Zm0-165v-60h470v60H160Zm360 580v-123l221-220q9-9 20-13t22-4q12 0 23 4.5t20 13.5l37 37q9 9 13 20t4 22q0 11-4.5 22.5T862.09-380L643-160H520Zm300-263-37-37 37 37ZM580-220h38l121-122-18-19-19-18-122 121v38Zm141-141-19-18 37 37-18-19Z" />
         </svg>
       </span>
       {{- end }}
@@ -116,6 +314,8 @@
   </nav>
 </footer>
 {{- end }}
+
+{{- end }}{{/* end .IsHome check */}}
 
 {{- end }}{{/* end profileMode */}}
 

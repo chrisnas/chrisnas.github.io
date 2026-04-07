@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>From Metadata to Event block in nettrace format | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, performance, diagnostics, memory, Cursor">
+<meta name="description" content="The previous episodes started the parsing of the “nettrace” format. This last episode covers Metadata and Event blocks format.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2023-03-10_from-metadata-to-event/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2023-03-10_from-metadata-to-event/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      From Metadata to Event block in nettrace format
+    </h1>
+    <div class="post-description">
+      The previous episodes started the parsing of the “nettrace” format. This last episode covers Metadata and Event blocks format.
+    </div>
+    <div class="post-meta"><span title='2023-03-10 16:15:40.548 +0000 UTC'>March 10, 2023</span>&nbsp;·&nbsp;<span>12 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2023-03-10_from-metadata-to-event/1_8U7zPxOVCe2Bws5g5TkX_A.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#the-metadataobject" aria-label="The Metadata “object”">The Metadata “object”</a></li>
+                <li>
+                    <a href="#the-eventobject" aria-label="The Event “object”">The Event “object”</a></li>
+                <li>
+                    <a href="#the-sequencepointblock-object" aria-label="The SequencePointBlock “object”">The SequencePointBlock “object”</a></li>
+                <li>
+                    <a href="#resources" aria-label="Resources">Resources</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p>The previous episodes started the parsing of the “nettrace” format used when <a href="/posts/2022-09-18_net-diagnostic-ipc-protocol/">contacting the .NET Diagnostics IPC server</a>, <a href="/posts/2022-10-23_clr-events-go-for/">initiate the protocol to receive CLR events</a> and start to <a href="/posts/2023-01-15_reading-object-in-memory/">parse stacks</a>. This last episode covers the Metadata and Event blocks.</p>
+<p>In terms of format, both Metadata and Event blocks share the same memory layout:</p>
+<p><img loading="lazy" src="/posts/2023-03-10_from-metadata-to-event/1_8U7zPxOVCe2Bws5g5TkX_A.png"></p>
+<p>The common <strong>EventBlockHeader</strong> starts the block:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#pragma pack(1)
+</span></span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">EventBlockHeader</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">HeaderSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">Flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">MinTimestamp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">MaxTimestamp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// some optional reserved space might be following
+</span></span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The timestamp fields give the time of the first and last event in the block. The <strong>HeaderSize</strong> fields is important because additional information can be stored in the header. Since I have no idea what could be stored there, I simply skip it:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">EventParserBase</span><span class="o">::</span><span class="n">OnParse</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// read event block header
+</span></span></span><span class="line"><span class="cl">    <span class="n">EventBlockHeader</span> <span class="n">ebHeader</span> <span class="o">=</span> <span class="p">{};</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Read</span><span class="p">(</span><span class="o">&amp;</span><span class="n">ebHeader</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ebHeader</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// skip any optional content if any
+</span></span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">ebHeader</span><span class="p">.</span><span class="n">HeaderSize</span> <span class="o">&gt;</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">EventBlockHeader</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint8_t</span> <span class="n">optionalSize</span> <span class="o">=</span> <span class="n">ebHeader</span><span class="p">.</span><span class="n">HeaderSize</span> <span class="o">-</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">EventBlockHeader</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">SkipBytes</span><span class="p">(</span><span class="n">optionalSize</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The important piece of information to figure out how to unpack the rest of the block is kept in the <strong>Flags</strong> field. If the lowest bit is set, it means that the blobs header will be compressed:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// the rest of the block is a list of Event blobs
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//
+</span></span></span><span class="line"><span class="cl">    <span class="n">DWORD</span> <span class="n">blobSize</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DWORD</span> <span class="n">totalBlobSize</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DWORD</span> <span class="n">remainingBlockSize</span> <span class="o">=</span> <span class="n">_blockSize</span> <span class="o">-</span> <span class="n">ebHeader</span><span class="p">.</span><span class="n">HeaderSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="n">isCompressed</span> <span class="o">=</span> <span class="p">((</span><span class="n">ebHeader</span><span class="p">.</span><span class="n">Flags</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The rest of the code iterates on each blob:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Note: in order to gain space, some fields of the header could be &#34;inherited&#34;
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// from the header of the previous blob --&gt; need to pass it from blob to blob
+</span></span></span><span class="line"><span class="cl">    <span class="n">EventBlobHeader</span> <span class="n">header</span> <span class="o">=</span> <span class="p">{};</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span> <span class="p">(</span><span class="n">OnParseBlob</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="n">isCompressed</span><span class="p">,</span> <span class="n">blobSize</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">totalBlobSize</span> <span class="o">+=</span> <span class="n">blobSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">blobSize</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">totalBlobSize</span> <span class="o">&gt;=</span> <span class="n">remainingBlockSize</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="c1">// try to detect last blob
+</span></span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// don&#39;t forget to check the end of block tag
+</span></span></span><span class="line"><span class="cl">            <span class="kt">uint8_t</span> <span class="n">tag</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadByte</span><span class="p">(</span><span class="n">tag</span><span class="p">)</span> <span class="o">||</span> <span class="p">(</span><span class="n">tag</span> <span class="o">!=</span> <span class="n">NettraceTag</span><span class="o">::</span><span class="n">EndObject</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;Missing end of block tag</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Here is the tricky part: to gain space, each blob starts with a header that could be “compressed”. The compression mechanism is simple: the first byte is a bitfield value that indicates which fields are present (i.e. their value should be read from the memory block) or skipped (i.e. their value is the same as the previous blob header). Therefore, an <strong>EventBlobHeader</strong> is passed by reference to the <strong>OnParseBlob</strong> function. My <strong>MetadataParser</strong> and <strong>EventParser</strong> implementations of <strong>OnParseBlob</strong> both starts with the same code to read the header:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">XXXParser</span><span class="o">::</span><span class="n">OnParseBlob</span><span class="p">(</span><span class="n">EventBlobHeader</span><span class="o">&amp;</span> <span class="n">header</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">isCompressed</span><span class="p">,</span> <span class="n">DWORD</span><span class="o">&amp;</span> <span class="n">blobSize</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">isCompressed</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadCompressedHeader</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="n">blobSize</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadUncompressedHeader</span><span class="p">(</span><span class="n">header</span><span class="p">,</span> <span class="n">blobSize</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The implementation to read compressed and uncompressed version of the header is a direct translation of <a href="https://github.dev/microsoft/perfview/blob/b5d1f0423ed5fb6521fae0f3c9e92c886752ac8d/src/TraceEvent/EventPipe/EventPipeEventSource.cs#L1439">the TraceEvent C# code</a> into C++.</p>
+<p>The <strong>EventBlobHeader</strong> contains details of events:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#pragma pack(1)
+</span></span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">EventBlobHeader_V4</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">EventSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">MetadataId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">SequenceNumber</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">ThreadId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">CaptureThreadId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">ProcessorNumber</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">StackId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">Timestamp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">GUID</span> <span class="n">ActivityId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">GUID</span> <span class="n">RelatedActivityId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">PayloadSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>The “identity” of an event is given by the <strong>MetadataId</strong> field that refers to information defined in Metadata “object“ (for which <strong>MetadataId</strong> is 0).</li>
+<li>The <strong>SequenceNumber</strong> field is incremented on a per thread basis each time an event is emitted. This could be used to detect if some events have been dropped (for a given <strong>CaptureThreadId</strong>, two consecutive events have a <strong>SequenceNumber</strong> incremented by more than 1 — more on dropped events in the forthcoming SequencePoint “object” description). Its value is 0 for a metadata “object”</li>
+<li>The <strong>ThreadId</strong> and <strong>CaptureThreadId</strong> field have always the same value for Event “object”; <strong>CaptureThreadId</strong> is 0 for Metadata “object”.</li>
+<li>In case of Event “object”, the <strong>StackId</strong> field refers to one of the stacks extracted from a Stack “object”. Its value is 0 for Metadata “object”.</li>
+</ul>
+<h2 id="the-metadataobject">The Metadata “object”<a hidden class="anchor" aria-hidden="true" href="#the-metadataobject">#</a></h2>
+<p>As <a href="https://github.com/microsoft/perfview/blob/main/src/TraceEvent/EventPipe/EventPipeFormat.md">the documentation states</a>, <em>each MetadataBlock holds a set of metadata records. Each metadata record has an ID and it describes one type of event. Each event has a metadataId field which will indicate the ID of the metadata record which describes that event</em>.</p>
+<p>The resulting mapping is stored in <strong>EventPipeSession</strong> class:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// per metadataID event metadata description
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">unordered_map</span><span class="o">&lt;</span><span class="kt">uint32_t</span><span class="p">,</span> <span class="n">EventCacheMetadata</span><span class="o">&gt;</span> <span class="n">_metadata</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>However, the rest of the documentation is partially right in the case of nettrace stream received through EventPipe: <em>Metadata includes an event name, provider name, and the layout of fields that are encoded in the event’s payload section.</em></p>
+<p>First, the fields layout is simply not there. In addition, for some providers (dotnet runtime, private and rundown), the event names are empty strings. So, the data structure filled from the <strong>MetadataBlock</strong> will most of the time have an empty <strong>EventName</strong> field. Note that the “Microsoft-DotNETCore-EventPipe” provider (i.e. command events for that specific provider) and EventSource-derived classes written in C# provide the events name:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">EventCacheMetadata</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span>     <span class="n">MetadataId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">wstring</span> <span class="n">ProviderName</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span>     <span class="n">EventId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">wstring</span> <span class="n">EventName</span><span class="p">;</span> <span class="c1">// empty most of the time
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span>     <span class="n">Keywords</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span>     <span class="n">Version</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span>     <span class="n">Level</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>In addition to the provider’s name serialized as a UTF16 string (including last ‘\0’ wide character), the <strong>EventId</strong> field is the key used to identify an event.</p>
+<p>After these details, you will find a 4 bytes value corresponding to the number of fields in the event payload. As already mentioned, this value is always 0 so my code is skipping the rest of the metadata block payload.</p>
+<h2 id="the-eventobject">The Event “object”<a hidden class="anchor" aria-hidden="true" href="#the-eventobject">#</a></h2>
+<p>And at last, here comes the time to parse Event “object” payload! The <strong>MetadataId</strong> field of the <strong>EventBlobHeader</strong> is used to find the provider’s name and event id:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">EventParser</span><span class="o">::</span><span class="n">OnParseBlob</span><span class="p">(</span><span class="n">EventBlobHeader</span><span class="o">&amp;</span> <span class="n">header</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">isCompressed</span><span class="p">,</span> <span class="n">DWORD</span><span class="o">&amp;</span> <span class="n">blobSize</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span><span class="o">&amp;</span> <span class="n">metadataDef</span> <span class="o">=</span> <span class="n">_metadata</span><span class="p">[</span><span class="n">header</span><span class="p">.</span><span class="n">MetadataId</span><span class="p">];</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>So, the rest of the function reads the payload based on the expected event id:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">switch</span> <span class="p">(</span><span class="n">metadataDef</span><span class="p">.</span><span class="n">EventId</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="n">EventIDs</span><span class="o">::</span><span class="nl">AllocationTick</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">OnAllocationTick</span><span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">PayloadSize</span><span class="p">,</span> <span class="n">metadataDef</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="p">...</span>
+</span></span><span class="line"><span class="cl">            <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">case</span> <span class="n">EventIDs</span><span class="o">::</span><span class="nl">ExceptionThrown</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">OnExceptionThrown</span><span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">PayloadSize</span><span class="p">,</span> <span class="n">metadataDef</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">default</span><span class="o">:</span>  <span class="c1">// skip events we are not interested in
+</span></span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">SkipBytes</span><span class="p">(</span><span class="n">header</span><span class="p">.</span><span class="n">PayloadSize</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">blobSize</span> <span class="o">+=</span> <span class="n">header</span><span class="p">.</span><span class="n">PayloadSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The format of each event payload is usually given by <a href="https://docs.microsoft.com/en-us/dotnet/framework/performance/clr-etw-events?WT.mc_id=DT-MVP-5003325">the Microsoft documentation</a>. If not, you should look into the <a href="https://github.com/dotnet/coreclr/blob/release/3.1/src/vm/ClrEtwAll.man">ClrEtwall.man file</a> where the payload of ALL events are defined. For example, the <a href="https://docs.microsoft.com/en-us/dotnet/framework/performance/garbage-collection-etw-events#gcallocationtick_v3-event?WT.mc_id=DT-MVP-5003325"><em>AllocationTick</em> event payload</a> provides the name of the last allocated type to reach the 100 KB threshold (read <a href="/posts/2020-04-18_build-your-own-net/">this blog post</a> for more details about how to use this event):</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">//  AllocationAmount    UInt32          The allocation size, in bytes.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//                                      This value is accurate for allocations that are less than the length of a ULONG(4,294,967,295 bytes).
+</span></span></span><span class="line"><span class="cl"><span class="c1">//                                      If the allocation is greater, this field contains a truncated value.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//                                      Use AllocationAmount64 for very large allocations.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//  AllocationKind      UInt32          0x0 - Small object allocation(allocation is in small object heap).
+</span></span></span><span class="line"><span class="cl"><span class="c1">//                                      0x1 - Large object allocation(allocation is in large object heap).
+</span></span></span><span class="line"><span class="cl"><span class="c1">//  ClrInstanceID       UInt16          Unique ID for the instance of CLR or CoreCLR.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//  AllocationAmount64  UInt64          The allocation size, in bytes.This value is accurate for very large allocations.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//  TypeId              Pointer         The address of the MethodTable.When there are several types of objects that were allocated during this event,
+</span></span></span><span class="line"><span class="cl"><span class="c1">//                                      this is the address of the MethodTable that corresponds to the last object allocated (the object that caused the 100 KB threshold to be exceeded).
+</span></span></span><span class="line"><span class="cl"><span class="c1">//  TypeName            UnicodeString   The name of the type that was allocated.When there are several types of objects that were allocated during this event,
+</span></span></span><span class="line"><span class="cl"><span class="c1">//                                      this is the type of the last object allocated (the object that caused the 100 KB threshold to be exceeded).
+</span></span></span><span class="line"><span class="cl"><span class="c1">//  HeapIndex           UInt32          The heap where the object was allocated.This value is 0 (zero)when running with workstation garbage collection.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//  Address             Pointer         The address of the last allocated object.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>Based on this fields definition, the <strong>EventParser::OnAllocationTick</strong> function is reading each field after the other thanks to the <strong>ReadWord</strong>, <strong>ReadDWord</strong>, <strong>ReadLong</strong> and <strong>ReadWString</strong> :</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">EventParser</span><span class="o">::</span><span class="n">OnAllocationTick</span><span class="p">(</span><span class="n">DWORD</span> <span class="n">payloadSize</span><span class="p">,</span> <span class="n">EventCacheMetadata</span><span class="o">&amp;</span> <span class="n">metadataDef</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DWORD</span> <span class="n">readBytesCount</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DWORD</span> <span class="n">size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">Allocation Tick:</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// get common fields
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">dword</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadDWord</span><span class="p">(</span><span class="n">dword</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">readBytesCount</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">dword</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;   Amount        = &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">dword</span> <span class="o">&lt;&lt;</span> <span class="s">&#34; bytes</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadDWord</span><span class="p">(</span><span class="n">dword</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">readBytesCount</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">dword</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;   Kind          = &#34;</span> <span class="o">&lt;&lt;</span> <span class="p">((</span><span class="n">dword</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">?</span> <span class="s">&#34;LOH&#34;</span> <span class="o">:</span> <span class="s">&#34;small&#34;</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="s">&#34; bytes</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">word</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadWord</span><span class="p">(</span><span class="n">word</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">readBytesCount</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">word</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;   CLR ID        = &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">word</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">ulong</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadLong</span><span class="p">(</span><span class="n">ulong</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">readBytesCount</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ulong</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;   Amount64      = &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">ulong</span> <span class="o">&lt;&lt;</span> <span class="s">&#34; bytes</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The bitness of the monitored application is important when “pointers” need to be read from the payload: use <strong>ReadDWord</strong> for 32-bit and <strong>ReadLong</strong> for 64-bit:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// skip useless MT address
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// Note: handle 32/64 bit difference
+</span></span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">_is64Bit</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadLong</span><span class="p">(</span><span class="n">ulong</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">readBytesCount</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ulong</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadDWord</span><span class="p">(</span><span class="n">dword</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">readBytesCount</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">dword</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>And if you don’t need the rest of the payload, <strong>SkipBytes</strong> is your friend:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// skip the rest of the payload
+</span></span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">SkipBytes</span><span class="p">(</span><span class="n">payloadSize</span> <span class="o">-</span> <span class="n">readBytesCount</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>I had some issues when dealing with the <a href="https://docs.microsoft.com/en-us/dotnet/framework/performance/exception-thrown-v1-etw-event?WT.mc_id=DT-MVP-5003325"><strong>ExceptionThrown</strong> event payload</a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Type             wstring     Exception type
+</span></span></span><span class="line"><span class="cl"><span class="c1">// Message          wstring     Exception message
+</span></span></span><span class="line"><span class="cl"><span class="c1">// EIPCodeThrow     win:Pointer Instruction pointer where exception occurred.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// ExceptionHR      win:UInt32  Exception HRESULT.
+</span></span></span><span class="line"><span class="cl"><span class="c1">// ExceptionFlags   win:UInt16
+</span></span></span><span class="line"><span class="cl"><span class="c1">//      0x01: HasInnerException (see CLR ETW Events in the Visual Basic documentation).
+</span></span></span><span class="line"><span class="cl"><span class="c1">//      0x02: IsNestedException.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//      0x04: IsRethrownException.
+</span></span></span><span class="line"><span class="cl"><span class="c1">//      0x08: IsCorruptedStateException (indicates that the process state is corrupt).
+</span></span></span><span class="line"><span class="cl"><span class="c1">//      0x10: IsCLSCompliant (an exception that derives from Exception is CLS-compliant).
+</span></span></span><span class="line"><span class="cl"><span class="c1">// ClrInstanceID win:UInt16 Unique ID for the instance of CLR or CoreCLR.
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>In case of an empty message, the field itself was not even there! Not even 0 for a ‘\0’ wide character… In fact, there is a bug in the serialization code that skips the field in that case. This has been <a href="https://github.com/dotnet/runtime/commit/72e2420fd227aa45c86577622cf3ed4adfbbb461">fixed in .NET 6</a> by storing “NULL” as the serialized string: I would have preferred ‘\0’ but it seems to be compatible with the ETW implementation.</p>
+<p>To support .NET Core 3+ and .NET 5, my code is comparing the size of the remaining of the payload after reading the exception type with the expected size of the 4 remaining fields after the exception message. If it is greater then it means that there is a string for the message. If not, I know that the message is empty:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">EventParser</span><span class="o">::</span><span class="n">OnExceptionThrown</span><span class="p">(</span><span class="n">DWORD</span> <span class="n">payloadSize</span><span class="p">,</span> <span class="n">EventCacheMetadata</span><span class="o">&amp;</span> <span class="n">metadataDef</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DWORD</span> <span class="n">readBytesCount</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DWORD</span> <span class="n">size</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// read exception type
+</span></span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Size of the ExceptionThrown payload AFTER the Message field
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint16_t</span> <span class="n">exceptionRemainingPayloadSize</span> <span class="o">=</span> <span class="p">(</span><span class="n">_is64Bit</span> <span class="o">?</span> <span class="mi">8</span> <span class="o">:</span> <span class="mi">4</span><span class="p">)</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// In case of &#34;empty&#34; message, it might not be even visible as &#34;\0&#34; before .NET Core 6 (and after, will be &#34;NULL&#34;)
+</span></span></span><span class="line"><span class="cl">    <span class="c1">// so it is needed to check if the remaining payload contains such a string
+</span></span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">((</span><span class="n">payloadSize</span> <span class="o">-</span> <span class="n">readBytesCount</span><span class="p">)</span> <span class="o">==</span> <span class="n">_exceptionRemainingPayloadSize</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">std</span><span class="o">::</span><span class="n">wcout</span> <span class="o">&lt;&lt;</span> <span class="sa">L</span><span class="s">&#34;   message = &#39;&#39;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">ReadWString</span><span class="p">(</span><span class="n">strBuffer</span><span class="p">,</span> <span class="n">size</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">readBytesCount</span> <span class="o">+=</span> <span class="n">size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// handle empty string case (check for &#34;NULL&#34; in case of .NET 6+)
+</span></span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">strBuffer</span><span class="p">.</span><span class="n">empty</span><span class="p">()</span> <span class="o">||</span> <span class="p">(</span><span class="n">wcscmp</span><span class="p">(</span><span class="n">strBuffer</span><span class="p">.</span><span class="n">c_str</span><span class="p">(),</span> <span class="sa">L</span><span class="s">&#34;NULL&#34;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="n">std</span><span class="o">::</span><span class="n">wcout</span> <span class="o">&lt;&lt;</span> <span class="sa">L</span><span class="s">&#34;   message = &#39;&#39;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">std</span><span class="o">::</span><span class="n">wcout</span> <span class="o">&lt;&lt;</span> <span class="sa">L</span><span class="s">&#34;   message = &#34;</span> <span class="o">&lt;&lt;</span> <span class="n">strBuffer</span><span class="p">.</span><span class="n">c_str</span><span class="p">()</span> <span class="o">&lt;&lt;</span> <span class="sa">L</span><span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// skip the rest of the payload
+</span></span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nf">SkipBytes</span><span class="p">(</span><span class="n">payloadSize</span> <span class="o">-</span> <span class="n">readBytesCount</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="the-sequencepointblock-object">The SequencePointBlock “object”<a hidden class="anchor" aria-hidden="true" href="#the-sequencepointblock-object">#</a></h2>
+<p>The last “object” type is the sequence point block that contains the following fields:</p>
+<p><img loading="lazy" src="/posts/2023-03-10_from-metadata-to-event/1_aPaYZ4KOad8jUjnBzHggpg.png"></p>
+<p>In addition to these fields, it also <a href="https://github.com/microsoft/perfview/blob/main/src/TraceEvent/EventPipe/EventPipeFormat.md#sequencepointblock-object">implicitly tells you</a> that new stack “object” will be received (with stack id restarting from 1) to match next Event “objects”. For example, the following trace shows how a sequence point block resets the stacks by restarting at 1:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-markdown" data-lang="markdown"><span class="line"><span class="cl">Event block (140 bytes)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">blob header:
+</span></span><span class="line"><span class="cl">   StackId           = 3
+</span></span><span class="line"><span class="cl">Contention
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">blob header:
+</span></span><span class="line"><span class="cl">   StackId           = 4
+</span></span><span class="line"><span class="cl">Event = 81
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">blob header:
+</span></span><span class="line"><span class="cl">   StackId           = 3
+</span></span><span class="line"><span class="cl">Contention
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">------------------------------------------------ 
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="gs">________________________________________________</span>
+</span></span><span class="line"><span class="cl">SequencePoint block (217 bytes)
+</span></span><span class="line"><span class="cl">...
+</span></span><span class="line"><span class="cl">------------------------------------------------
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="gs">________________________________________________</span>
+</span></span><span class="line"><span class="cl">Stack block (105 bytes)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">Stack block header:
+</span></span><span class="line"><span class="cl">   FirstID: 1
+</span></span><span class="line"><span class="cl">   Count  : 2
+</span></span><span class="line"><span class="cl">------------------------------------------------
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="gs">________________________________________________</span>
+</span></span><span class="line"><span class="cl">Event block (92 bytes)
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">blob header:
+</span></span><span class="line"><span class="cl">   StackId           = 1
+</span></span><span class="line"><span class="cl">Contention
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">blob header:
+</span></span><span class="line"><span class="cl">   StackId           = 2
+</span></span><span class="line"><span class="cl">Event = 81
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">blob header:
+</span></span><span class="line"><span class="cl">   StackId           = 1
+</span></span><span class="line"><span class="cl">Contention:
+</span></span><span class="line"><span class="cl">------------------------------------------------
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>So, the stacks you might have cached based on the already received stack “objects” should now be invalidated like what I’m doing in <strong>SequencePointParser::OnParse</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">SequencePointParser</span><span class="o">::</span><span class="n">OnParse</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// reset stack caches
+</span></span></span><span class="line"><span class="cl">    <span class="n">_stacks32</span><span class="p">.</span><span class="n">clear</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_stacks64</span><span class="p">.</span><span class="n">clear</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>You now have all the elements you need to listen to CLR events on Windows and Linux for .NET Core 3+ and .NET 5+. If you are still running applications with .NET Framework, you will need to use ETW but this is another story.</p>
+<h2 id="resources">Resources<a hidden class="anchor" aria-hidden="true" href="#resources">#</a></h2>
+<ul>
+<li><a href="/posts/2022-07-28_digging-into-the-clr/">Episode 1</a> — <em>Digging into the CLR Diagnostics IPC Protocol in C#</em></li>
+<li><a href="/posts/2022-09-18_net-diagnostic-ipc-protocol/">Episode 2</a> — <em>.NET Diagnostic IPC protocol: the C++ way</em></li>
+<li>[Episode 3 ](/posts/2022-10-23_clr-events-go-for/ <em>CLR events: go for the nettrace file format!</em></li>
+<li>[Episode 4 ](/posts/2022-11-27_parsing-the-nettrace-stream/ <em>Parsing the “nettrace” steam</em></li>
+<li>[Episode 5 ](/posts/2023-01-15_reading-object-in-memory/ <em>Reading “object” in memory — starting with stacks</em></li>
+<li><a href="https://github.com/chrisnas/ClrEvents/tree/master/Events/NativeEventListener">Source code</a> for the C++ implementation of CLR events listener</li>
+<li>Diagnostics IPC protocol <a href="https://github.com/dotnet/diagnostics/blob/main/documentation/design-docs/ipc-protocol.md">documentation</a></li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2023-05-08_raiders-of-the-lost/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Raiders of the lost root: looking for memory leaks in .NET</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2023-01-15_reading-object-in-memory/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Reading “object” in memory — starting with stacks</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

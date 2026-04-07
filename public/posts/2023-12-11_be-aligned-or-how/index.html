@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Be Aligned! Or how to investigate a stack corruption | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, .NET, GC, debugging, performance, memory, Cursor">
+<meta name="description" content="This post describes the different steps I followed to investigate a stack corruption with Visual Studio">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2023-12-11_be-aligned-or-how/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2023-12-11_be-aligned-or-how/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Be Aligned! Or how to investigate a stack corruption
+    </h1>
+    <div class="post-description">
+      This post describes the different steps I followed to investigate a stack corruption with Visual Studio
+    </div>
+    <div class="post-meta"><span title='2023-12-11 11:01:45.539 +0000 UTC'>December 11, 2023</span>&nbsp;·&nbsp;<span>5 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2023-12-11_be-aligned-or-how/1_XEEcEc2kLKmy8xRDF2e_xA.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#trying-to-understand-theproblem" aria-label="Trying to understand the problem">Trying to understand the problem</a></li>
+                <li>
+                    <a href="#make-it-simpler-and-simpler-and-simpleragain" aria-label="Make it simpler and simpler and simpler again">Make it simpler and simpler and simpler again</a></li>
+                <li>
+                    <a href="#use-your-debuggerluke" aria-label="Use your debugger Luke!">Use your debugger Luke!</a></li>
+                <li>
+                    <a href="#whats-next" aria-label="What’s next?">What’s next?</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>During the Datadog R&amp;D week, my goal is to mimic the generation of a .gcdump from our .NET profiler. I’ve already written most of the code <a href="/posts/2023-08-11_net-gcdump-internals/">for a previous post</a> and after changing the required plumbing, it is time to test the workflow.</p>
+<p>Unfortunately, I’m facing the dreaded stack corruption dialog:</p>
+<p><img loading="lazy" src="/posts/2023-12-11_be-aligned-or-how/1_5ydnBBOQBccS0f016OUDIw.png"></p>
+<p>The rest of the post explains the different steps I’m following to investigate this issue.</p>
+<h2 id="trying-to-understand-theproblem">Trying to understand the problem<a hidden class="anchor" aria-hidden="true" href="#trying-to-understand-theproblem">#</a></h2>
+<p>This stack check is done by the debug version of the C Runtime library by basically adding some special bytes on the stack before calling a function and checking these bytes are not tampered when returning from the call.</p>
+<p>So, the next step is to debug the application to get more details and at least where in the code the problem happened:</p>
+<p><img loading="lazy" src="/posts/2023-12-11_be-aligned-or-how/1_XEEcEc2kLKmy8xRDF2e_xA.png"></p>
+<p>The failed check occurs at the end of a function that looks like the following:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="n">GcDumpProvider</span><span class="o">::</span><span class="n">Get</span><span class="p">(</span><span class="n">IGcDumpProvider</span><span class="o">::</span><span class="n">gcdump_t</span><span class="o">&amp;</span> <span class="n">gcDump</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// trigger the GC and get the dump
+</span></span></span><span class="line"><span class="cl">    <span class="n">GcDump</span> <span class="nf">gcd</span><span class="p">(</span><span class="o">::</span><span class="n">GetCurrentProcessId</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">    <span class="n">gcd</span><span class="p">.</span><span class="n">TriggerDump</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span> <span class="k">const</span><span class="o">&amp;</span> <span class="n">dump</span> <span class="o">=</span> <span class="n">gcd</span><span class="p">.</span><span class="n">GetGcDumpState</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">auto</span><span class="o">&amp;</span> <span class="n">types</span> <span class="o">=</span> <span class="n">dump</span><span class="p">.</span><span class="n">_types</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="k">auto</span><span class="o">&amp;</span> <span class="nl">type</span> <span class="p">:</span> <span class="n">types</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">auto</span><span class="o">&amp;</span> <span class="n">typeInfo</span> <span class="o">=</span> <span class="n">type</span><span class="p">.</span><span class="n">second</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="kt">uint64_t</span> <span class="n">instancesCount</span> <span class="o">=</span> <span class="n">typeInfo</span><span class="p">.</span><span class="n">_instances</span><span class="p">.</span><span class="n">size</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">uint64_t</span> <span class="n">instancesSize</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="n">size_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">instancesCount</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">instancesSize</span> <span class="o">+=</span> <span class="n">typeInfo</span><span class="p">.</span><span class="n">_instances</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">_size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">gcDump</span><span class="p">.</span><span class="n">push_back</span><span class="p">({</span><span class="n">typeInfo</span><span class="p">.</span><span class="n">_name</span><span class="p">,</span> <span class="n">instancesCount</span><span class="p">,</span> <span class="n">instancesSize</span><span class="p">});</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>There is much more code behind this; especially in the <strong>TriggerDump()</strong> function. I have already tested this code many times when I dug into the .gcdump generation process without facing this stack corruption. I’m spending a few hours digging back into the code because:</p>
+<ul>
+<li>I’m not running inside the profiled process and not outside like in the blog post</li>
+<li>I’m introducing a “slight” change because I need to exit the communication with the CLR when the GC ends.</li>
+<li>I need to mention that Visual Studio is refusing to debug (Step Over or Step Into) and only Run to Cursor was possible due to mixed mode (managed and native) debugging. So, I created a simple native console application with my updated code for easier and faster debugging.</li>
+</ul>
+<p>After a couple of hours, it is time to go back to the <strong>Get()</strong> implementation because I do not find anything obviously wrong.</p>
+<h2 id="make-it-simpler-and-simpler-and-simpleragain">Make it simpler and simpler and simpler again<a hidden class="anchor" aria-hidden="true" href="#make-it-simpler-and-simpler-and-simpleragain">#</a></h2>
+<p>In that type of situation, I recommend the “remove code and debug” strategy (from “divide and conquer” attributed to Julius Cesar). From the simplified console application, the code now looks like:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">bool</span> <span class="nf">GetGcDump</span><span class="p">(</span><span class="kt">int</span> <span class="n">pid</span><span class="p">,</span> <span class="n">IGcDumpProvider</span><span class="o">::</span><span class="n">gcdump_t</span><span class="o">&amp;</span> <span class="n">gcDump</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">GcDump</span> <span class="n">gcd</span><span class="p">(</span><span class="n">pid</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// no more gcd.TriggerDump()
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// no more for (auto&amp; type : types)
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>No more complicated call nor iteration on the vector of results. Guess what? Same stack corruption.</p>
+<p>It is time to go one level deeper: what does this <strong>GcDump</strong> class look like?</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">GcDump</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">GcDump</span><span class="p">(</span><span class="kt">int</span> <span class="n">pid</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="o">~</span><span class="n">GcDump</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">private</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">_pid</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DiagnosticsClient</span><span class="o">*</span> <span class="n">_pClient</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">EventPipeSession</span><span class="o">*</span> <span class="n">_pSession</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">HANDLE</span> <span class="n">_hListenerThread</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">GcDumpState</span> <span class="n">_gcDumpState</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The constructor is setting the fields value to zero/nullptr and the destructor is cleaning up these fields if necessary. Since <strong>TriggerDump()</strong> is no more called, these fields never change.</p>
+<p>I’m commenting out all fields until only <strong>_gcDumpState</strong> remains and it continues to crash. When is it commented out, it is not more crashing.</p>
+<h2 id="use-your-debuggerluke">Use your debugger Luke!<a hidden class="anchor" aria-hidden="true" href="#use-your-debuggerluke">#</a></h2>
+<p>Let’s turn to the <strong>GcDumpState</strong> class that is even simpler:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">GcDumpState</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">GcDumpState</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="o">~</span><span class="n">GcDumpState</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// fields removed for brevity
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">private</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="n">_isStarted</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">bool</span> <span class="n">_hasEnded</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">_collectionIndex</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The code of the destructor only sends a trace to the console (removing it completely does not fix the issue) and here is the constructor code:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">GcDumpState</span><span class="o">::</span><span class="n">GcDumpState</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_isStarted</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_hasEnded</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_collectionIndex</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Again, same strategy: remove one field after the other. This time, the code stops crashing if the two Boolean fields are removed or if the 32 bits index is removed. If the index field is not set, no more corruption!</p>
+<p>How could this assignation corrupt the stack? It is time to use the Visual Studio debugger to better understand what is going on.</p>
+<p>First, set a breakpoint on the assignment line and click Debug | Disassembly to see the corresponding assembly code:</p>
+<p><img loading="lazy" src="/posts/2023-12-11_be-aligned-or-how/1_vD7b7Lv-bcUmfOwGFOGM8Q.png"></p>
+<p>The two lines of assembly code are easy to understand:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">mov</span> <span class="n">rax</span><span class="p">,</span><span class="n">qword</span> <span class="n">ptr</span> <span class="p">[</span><span class="k">this</span><span class="p">]</span>  
+</span></span><span class="line"><span class="cl"><span class="n">mov</span> <span class="n">dword</span> <span class="n">ptr</span> <span class="p">[</span><span class="n">rax</span><span class="o">+</span><span class="mi">4</span><span class="p">],</span><span class="mi">0</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><ul>
+<li>The <strong>this</strong> pointer is stored in the <strong>rax</strong> register</li>
+<li>The 32 bits (<strong>mov dword</strong>) memory starting 4 bytes after the beginning of the object pointed to by <strong>this</strong>, is set to 0</li>
+</ul>
+<p>I enter “this” in a Memory panel (Debug | Windows | Memory xx)</p>
+<p><img loading="lazy" src="/posts/2023-12-11_be-aligned-or-how/1_EMOVsaUfPsdbWwKx11c0eQ.png"></p>
+<p>And Visual Studio gives me the corresponding address and the content of the memory there:</p>
+<p><img loading="lazy" src="/posts/2023-12-11_be-aligned-or-how/1_tKK6VDl7svGm4mA8JJBM_w.png"></p>
+<p>Pressing F10 twice to Step Over the two assembly instructions and this is confirmed:</p>
+<p><img loading="lazy" src="/posts/2023-12-11_be-aligned-or-how/1_sECyiTU4IBMIuqtzTr4Ecg.png"></p>
+<p>Instead of storing the 32 bits 0 value just after the two bytes corresponding to the bool fields, it is stored 2 bytes away. It looks like a padding is added on my behalf.</p>
+<p>I change the build settings for the GcDumpState.cpp file to enable all warnings:</p>
+<p><img loading="lazy" src="/posts/2023-12-11_be-aligned-or-how/1__0XcRwnGs8Qaoj4_S99LZQ.png"></p>
+<p>The compilation confirms what has been seen in the memory:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">GcDumpState</span><span class="p">.</span><span class="n">h</span><span class="p">(</span><span class="mi">41</span><span class="p">,</span><span class="mi">14</span><span class="p">)</span><span class="o">:</span> <span class="n">warning</span> <span class="nl">C4820</span><span class="p">:</span> <span class="err">&#39;</span><span class="n">GcDumpState</span><span class="err">&#39;</span><span class="o">:</span> <span class="sc">&#39;2&#39;</span> <span class="n">bytes</span> <span class="n">padding</span> <span class="n">added</span> <span class="n">after</span> <span class="n">data</span> <span class="n">member</span> <span class="err">&#39;</span><span class="n">GcDumpState</span><span class="o">::</span><span class="n">_hasEnded</span><span class="err">&#39;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="whats-next">What’s next?<a hidden class="anchor" aria-hidden="true" href="#whats-next">#</a></h2>
+<p>My understanding is that the compiler is:</p>
+<ul>
+<li>adding a 2 bytes padding to align the 32 bits index field</li>
+<li>generating the constructor code based on that padding</li>
+<li>but the stack corruption checking code does not take it into account</li>
+</ul>
+<p>The solution is to either add a <strong>uint16_t</strong> field after the 2 bool fields as an explicit padding or use <strong>#pragma pack(1)</strong> to decorate the class definition.</p>
+<p>However, this looks really weird to me. We should have faced this issue a long time ago because we were never cautious about alignment in all the classes and structures that we allocate in our code. To validate the assumption, I’m writing a small reproduction code outside of all the .gcdump complexity. And guess what? I’m not able to reproduce the stack corruption. Another mystery of the C++ compilation optimizations probably…</p>
+<p>This is the end of my debugging Friday at Datadog :^)</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2024-03-01_view-your-gcs-statistics/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>View your GCs statistics live with dotnet-gcstats!</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2023-11-12_how-to-dig-into/">
+    <span class="title">Next »</span>
+    <br>
+    <span>How to dig into the CLR</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

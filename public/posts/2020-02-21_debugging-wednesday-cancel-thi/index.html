@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Debugging Wednesday at Criteo — Cancel this task! | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, debugging, performance, diagnostics, memory, Cursor">
+<meta name="description" content="Last Wednesday “Debugging” day for Kevin and myself. Let’s share with you these frustrating but interesting minutes.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2020-02-21_debugging-wednesday-cancel-thi/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2020-02-21_debugging-wednesday-cancel-thi/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Debugging Wednesday at Criteo — Cancel this task!
+    </h1>
+    <div class="post-description">
+      Last Wednesday “Debugging” day for Kevin and myself. Let’s share with you these frustrating but interesting minutes.
+    </div>
+    <div class="post-meta"><span title='2020-02-21 08:18:08.646 +0000 UTC'>February 21, 2020</span>&nbsp;·&nbsp;<span>9 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2020-02-21_debugging-wednesday-cancel-thi/1_g3mc-sEc56gtAUP_rR4HHA.jpeg" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#reproduce-theproblem" aria-label="Reproduce the problem">Reproduce the problem</a></li>
+                <li>
+                    <a href="#looking-for-cancellation" aria-label="Looking for cancellation">Looking for cancellation</a></li>
+                <li>
+                    <a href="#eureka" aria-label="Eureka!">Eureka!</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_g3mc-sEc56gtAUP_rR4HHA.jpeg"></p>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>Last Wednesday was a great day for <a href="https://twitter.com/KooKiz">Kevin</a> and myself: We spent a lot of time investigating the reasons why a test was failing. Let’s share with you these frustrating but interesting minutes.</p>
+<p>One of our colleagues came to us because an integration test would get stuck in some specific conditions. Here is the simplified code of the service that is supposed to do some background processing until it is stopped:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">Service</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">CancellationTokenSource</span> <span class="n">_cancellationSource</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">Task</span> <span class="n">_backgroundProcessing</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">Task</span> <span class="n">_cleanup</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>In the test, the service is created: Two <code>Task</code> instances are created in the constructor (for background processing irrelevant for this discussion) that (1) are started when the service starts and (2) are canceled when the service is stopped. A <code>CancellationTokenSource</code> is used to cancel the tasks if needed.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="n">Service</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_cancellationSource</span> <span class="p">=</span> <span class="k">new</span> <span class="n">CancellationTokenSource</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">cancellationToken</span> <span class="p">=</span> <span class="n">_cancellationSource</span><span class="p">.</span><span class="n">Token</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_backgroundProcessing</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Task</span><span class="p">(</span><span class="n">DoStuffInTheBackground</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cancellationToken</span><span class="p">,</span> <span class="n">TaskCreationOptions</span><span class="p">.</span><span class="n">LongRunning</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_cleanup</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Task</span><span class="p">(</span><span class="n">DoStuffInTheBackground</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">        <span class="n">cancellationToken</span><span class="p">,</span> <span class="n">TaskCreationOptions</span><span class="p">.</span><span class="n">LongRunning</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>However, in the specific conditions of this test, the <code>Start</code> method would never be called, skipping straight to the <code>Stop</code> method.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">void</span> <span class="n">Start</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_backgroundProcessing</span><span class="p">.</span><span class="n">Start</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_cleanup</span><span class="p">.</span><span class="n">Start</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">public</span> <span class="kd">async</span> <span class="n">Task</span> <span class="n">Stop</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_cancellationSource</span><span class="p">.</span><span class="n">Cancel</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">await</span> <span class="n">_backgroundProcessing</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">await</span> <span class="n">_cleanup</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The task is never started because the test skips the <code>Service.Start()</code> method, but it should transition to “Cancelled” state as soon as the <code>CancellationTokenSource</code> associated with the <code>CancellationToken</code> passed to the <code>Task</code> gets canceled. In that particular situation, we expect the <code>await _backgroundProcessing</code> code to immediately return in the <code>Stop()</code> method.</p>
+<p>In our colleague Visual Studio, the debugger never came back from <code>await _backgroundProcessing</code>, indicating that the task never completed…</p>
+<h2 id="reproduce-theproblem">Reproduce the problem<a hidden class="anchor" aria-hidden="true" href="#reproduce-theproblem">#</a></h2>
+<p>I wanted to un-validate any side effect related to our test framework or custom Criteo libraries and confirm my understanding of task cancellation, so I wrote a small Console application with the same 4.7.2 version of .NET Framework with the following code:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">static</span> <span class="kd">async</span> <span class="n">Task</span> <span class="n">ReproduceWorking</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">source</span> <span class="p">=</span> <span class="k">new</span> <span class="n">CancellationTokenSource</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">token</span> <span class="p">=</span> <span class="n">source</span><span class="p">.</span><span class="n">Token</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">t</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Task</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="p">()</span> <span class="p">=&gt;</span> <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;Done&#34;</span><span class="p">),</span> <span class="n">token</span><span class="p">,</span> <span class="n">TaskCreationOptions</span><span class="p">.</span><span class="n">LongRunning</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">source</span><span class="p">.</span><span class="n">Cancel</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">try</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">await</span> <span class="n">t</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">catch</span> <span class="p">(</span><span class="n">TaskCanceledException</span> <span class="n">x</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">ToString</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>And guess what?
+I got the expected <code>TaskCancellationException</code>:</p>
+<blockquote>
+<p>System.Threading.Tasks.TaskCanceledException: A task was canceled.
+at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
+at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+at System.Runtime.CompilerServices.TaskAwaiter.GetResult()
+at TaskCancellation.Program.d__2.MoveNext()</p>
+</blockquote>
+<p>The next step was to double-check the understanding of how tasks are working related to cancellation. So I set a breakpoint after the task is instantiated</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_lNlSNvggMbjwA7mAC33LPA.png"></p>
+<p>And its status is <strong>Created</strong>.</p>
+<p>Doing the same after <code>Cancel()</code> is called on the <code>CancellationTokenSource</code>, gives the expected <strong>Canceled</strong> status.</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_uDQ7b1Eq2QYYmVdT1jSn1Q.png"></p>
+<p>So, let’s do the same when debugging the test code:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_v90VjEEUTCNHm3Xre_zeHQ.png"></p>
+<p>It gives the same <strong>Created</strong> status after the task creation but after canceling the source:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_iOYZBxNZOLvrxarbcbj6Uw.png"></p>
+<p>…the status does not switch to <strong>Canceled</strong> like in my Console repro!</p>
+<h2 id="looking-for-cancellation">Looking for cancellation<a hidden class="anchor" aria-hidden="true" href="#looking-for-cancellation">#</a></h2>
+<p>The only thing that came to my mind was: maybe the cancellation token is not taken into account. However, a <code>CancellationToken</code> is just a struct that keeps a reference to its <code>CancellationTokenSource</code>. It should be easy in Visual Studio debugger to double-check that our task keeps track of the token somewhere and goes back to the cancellation source. Well… the token is not kept as a field of the task but stored inside the <code>m_contingentProperties</code> field <a href="https://referencesource.microsoft.com/#mscorlib/system/threading/Tasks/Task.cs,674">deep during the task construction code path</a>.</p>
+<p>Let’s look at the value in the <strong>Quick Watch</strong> after the cancellation source gets canceled:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_rJgSvnb9o7_Zut1D0f4fjg.png"></p>
+<p>It sounds like the cancellation token is not canceled… But if we look at the source <code>Token</code> property of our canceled <code>CancellationTokenSource</code>,</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_AduGgofUrRBXhEHlqYYueA.png"></p>
+<p>we don’t have the same value for <code>IsCancellationRequested</code>!</p>
+<p>It’s like we don’t look at the same cancellation source… To find out, we just have to compare the reference to our <code>CancellationTokenSource</code> with the one we see in the <code>m_contingentProperties</code> token of the task. To achieve that, we could copy the expression from QuickWatch, paste it into the <strong>Debug | Windows | Memory…</strong> pane and press ENTER to get the address where the object is stored in memory</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_UVx4QML3o6xp4Ecsu6cnbw.png"></p>
+<p>After having done the same with <code>_cancellationSource</code>, I did not get the same address:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_cPXCRetw7iGMYQ6g1tMpcA.png"></p>
+<p>It means that we were dealing with two different instances of <code>CancellationTokenSource</code>.</p>
+<p>But this might be too C++ish for you… Kevin prefers leveraging the <em>Make Object ID</em> feature of the C# debugger. You simply right-click the Data Tip of the cancellation source and select <strong>Make Object ID</strong>:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_RCJafBYT7icR6YFQ6tkxdA.png"></p>
+<p>Once this is done, a numeric identifier is displayed for this instance in Data Tip and any Watch window (#1 in this screenshot):</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_CTf7RGYgX2otS5K6rH9azQ.png"></p>
+<p>When we looked at the cancellation source of the token stored by the task,</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_aHnPvqWuL5sM0cj9ztyA4A.png"></p>
+<p>we didn’t see any ID so it was not the same object.</p>
+<p>So we decided to use Make Object ID on this <code>m_source</code> that became marked as #2.</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_KZ48iXU0TobSm-A3YFUTIQ.png"></p>
+<p>And when we looked at the <code>m_source</code> of the second cleanup <code>Task</code>, we realized that it was the same object but not the one we created!</p>
+<p>We started to think that we were becoming crazy. So, let’s restart from the beginning and follow the <code>CancellationTokenSource</code> from its creation because we are sure that we passed a valid cancellation token (linked to this source) to the task constructor. Or… Did we? The QuickWatch gives a different answer just after the task gets created compared to what we’ve seen already: a token with an empty source property now!</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_z9hOeNeJ7_o6_qX08bwWaw.png"></p>
+<p>I closed the QuickWatch pane and reopened it for Kevin to confirm. And like in a nightmare, the source was not null anymore…</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_l_2KlUeedUlG42RAej2jjA.png"></p>
+<p>Visual Studio must be responsible for that weird behavior!</p>
+<p>Kevin remembered the <em>”Enable property evaluation”</em> settings in the Options dialog. If it is checked (which is the default), it means that the Debugger would fetch the value of an instance field and then call the Getter of each property in order to display its value.</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_XqOydO0OsS0noacmEDpEdg.png"></p>
+<p>However, if you uncheck it, only the fields are displayed. So in our case, we then always got a null <code>m_contingentProperties</code> field (and, as expected, all property would not be displayed):</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_33vZaFRFh1ii2X2APgaeXw.png"></p>
+<p>The <code>m_contingentProperties</code> is initialized in <code>EnsureContingentPropertiesInitialized()</code> when called by <code>AssignCancellationToken()</code> from the <code>TaskContructorCore()</code> helper used by the <code>Task</code> constructor but it did not seem to be the case because it was definitively <strong>null</strong>…</p>
+<p>Kevin decided to stop at the <code>CancellationTokenSource</code> constructor with a new breakpoint (more on how to set a breakpoint on a .NET Framework method soon) to see where the one shown in the Debugger was created but the breakpoint was never hit. So the <code>CancellationTokenSource</code> #2 must have been created even before our own was created by our code. In fact, a static <code>CancellationTokenSource</code> is created and is set to <code>m_source</code> when <code>InitializeDefaultSource()</code> gets called by one of the Getter. This explains why we saw the same instance #2 in both tasks token.</p>
+<p>To sum up, we were now sure that the passed token was not “received” by the <code>Task</code>.</p>
+<h2 id="eureka">Eureka!<a hidden class="anchor" aria-hidden="true" href="#eureka">#</a></h2>
+<p>Maybe there is a magic trick done by the .NET Framework to lazily set the token source after the creation of the task. However, we did not find such a code in <a href="https://referencesource.microsoft.com/#mscorlib/system/threading/Tasks/Task.cs">the .NET Framework</a> and this is not what we see in our repro.</p>
+<p>Back to the basics: are we sure that we are executing the code we think is executed? We looked for mscorlib in the <strong>Debug | Windows | Modules</strong> pane,</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_dL92Y22KRoMBJVlGaGefgQ.png"></p>
+<p>and we opened it with a decompiler: the code of the methods called during the <code>Task</code>** **construction was the same as the one shown in <a href="https://referencesource.microsoft.com/#mscorlib/system/threading/Tasks/Task.cs">https://referencesource.microsoft.com/#mscorlib/system/threading/Tasks/Task.cs</a>.</p>
+<p>Next, in order to better follow the execution and the passing of parameters (including our token), we decided to set breakpoints on <code>Task</code> <a href="https://referencesource.microsoft.com/#mscorlib/system/threading/Tasks/Task.cs,590">private method responsible</a> for its initialization.</p>
+<pre tabindex="0"><code>internal void TaskConstructorCore(object action, object state, CancellationToken cancellationToken, TaskCreationOptions creationOptions, InternalTaskOptions internalOptions, TaskScheduler scheduler)
+</code></pre><p>In the <strong>Debug | Windows | Breakpoints</strong> pane, click <strong>New</strong> | <strong>Function Breakpoint…</strong></p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_eODuofmyha3AvYYQ5hL52g.png"></p>
+<p>and type the full name of the method. This is working even for a method of a class defined in the .NET Framework assembly for which you do not have the source code:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_WhyV6fYlMtw7qbTGQoOSWQ.png"></p>
+<p>We checked that the breakpoints were well set (i.e. no typo in the full name) by looking at the filled red circle:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_csd6pFIfQdTH853g1A8Uew.png"></p>
+<p>The <code>cancellationToken</code> parameter should contain the token that we passed at <code>Task</code> creation. Unfortunately, the QuickWatch pane displayed a “cannot read memory” error that we never saw in Visual Studio before!</p>
+<p>At that time, we thought we were doomed but we looked at the <strong>Call Stack</strong> pane and we realized that the code was calling <a href="https://referencesource.microsoft.com/#mscorlib/system/threading/Tasks/Task.cs,505">the wrong <strong>Task</strong> constructor</a>:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_MC5ZN4NUzKnGIiQTufUPbw.png"></p>
+<pre tabindex="0"><code>public Task(Action&lt;object&gt; action, object state, TaskCreationOptions creationOptions)
+</code></pre><p>Its signature is compatible with our code:</p>
+<pre tabindex="0"><code>_backgroundProcessing = new Task(DoStuffInTheBackground, cancellationToken, TaskCreationOptions.LongRunning);
+</code></pre><p>and this is why the compiler did not complain.</p>
+<p>Our <code>CancellationToken</code> was passed as the <code>state</code> parameter is given directly to our <code>DoStuffInTheBackground Action</code>: the created <code>Task</code> had no idea that it was supposed to be its <code>CancellationToken</code>.</p>
+<p>Note that if we had noticed the <strong>Auto Completion</strong> (Ctrl + Shift + Space) hint, we might have figured out the root cause much sooner…</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_CWW78rrNIhnbsLqCi0zniw.png"></p>
+<p>The fix was straightforward; just using <a href="https://referencesource.microsoft.com/#mscorlib/system/threading/Tasks/Task.cs,533">the right constructor</a>:</p>
+<pre tabindex="0"><code>public Task(Action&lt;object&gt; action, object state, CancellationToken cancellationToken, TaskCreationOptions creationOptions)
+</code></pre><p>that accepts both a state for the callback and a <code>CancellationToken</code> for the <code>Task</code> to create:</p>
+<pre tabindex="0"><code>_backgroundProcessing = new Task(DoStuffInTheBackground, cancellationToken, cancellationToken, TaskCreationOptions.LongRunning);
+</code></pre><p>Under the debugger, we validated that the source was now the expected one:</p>
+<p><img loading="lazy" src="/posts/2020-02-21_debugging-wednesday-cancel-thi/1_43MDI_vnkwcGjiLRoxj0qQ.png"></p>
+<p>and the test did not hang anymore.</p>
+<p>If, from the beginning, we would have been able to step into .NET Framework compiled code as we do with Jetbrains Resharper integration in Visual Studio, we would have found the issue almost immediately. Thankfully, Microsoft has just announced <a href="https://devblogs.microsoft.com/visualstudio/decompilation-of-c-code-made-easy-with-visual-studio?WT.mc_id=DT-MVP-5003325">decompilation of C# code made easy with Visual Studio</a>.</p>
+<p>We wish we had it last Wednesday…</p>
+<hr>
+<p><strong>Interested in reading more about Christophe’s &amp; Kevin’s work? Check out their latest articles:</strong></p>
+<p><a href="https://medium.com/criteo-labs/build-your-own-net-memory-profiler-in-c-allocations-1-2-9c9f0c86cefd"><strong>Build your own .NET memory profiler in C#</strong>
+*This post explains how to collect allocation details by writing your own memory profiler in C#.*medium.com</a><a href="https://medium.com/criteo-labs/build-your-own-net-memory-profiler-in-c-allocations-1-2-9c9f0c86cefd"></a><a href="https://medium.com/criteo-labs/switching-back-to-the-ui-thread-in-wpf-uwp-in-modern-c-5dc1cc8efa5e"><strong>Switching back to the UI thread in WPF/UWP, in modern C#</strong>
+<em>Leveraging the async machinery to transparently switch to the UI thread when needed</em>medium.com</a><a href="https://medium.com/criteo-labs/switching-back-to-the-ui-thread-in-wpf-uwp-in-modern-c-5dc1cc8efa5e"></a></p>
+<hr>
+<p><strong>If you are looking for a change and would love to work with these two, head over to our careers page and let us know if there is something that sounds like you!</strong></p>
+<p><a href="https://careers.criteo.com/working-in-R&amp;D"><strong>Product, Research &amp; Development | Criteo Careers</strong>
+*Come and meet our teams …*careers.criteo.com</a><a href="https://careers.criteo.com/working-in-R&amp;D"></a></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2020-04-18_build-your-own-net/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Build your own .NET memory profiler in C# — Allocations (1/2)</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2019-12-31_getting-another-view-on/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Getting another view on thread stacks with ClrMD</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

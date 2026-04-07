@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Monitor HTTP redirects to reduce unexpected latency | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, debugging, performance, dotnet-tools, Cursor, HTTP">
+<meta name="description" content="This post details how redirection handling impacts dotnet-http tool implementation but also possibly your requests latency.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2024-12-13_monitor-http-redirects-to/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2024-12-13_monitor-http-redirects-to/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Monitor HTTP redirects to reduce unexpected latency
+    </h1>
+    <div class="post-description">
+      This post details how redirection handling impacts dotnet-http tool implementation but also possibly your requests latency.
+    </div>
+    <div class="post-meta"><span title='2024-12-13 14:21:41.59 +0000 UTC'>December 13, 2024</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2024-12-13_monitor-http-redirects-to/1_w_2f8F9E6hGmoiGLBCMqfw.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#always-test-supported-versions" aria-label="Always test supported versions…">Always test supported versions…</a></li>
+                <li>
+                    <a href="#explain-what-a-redirection-isplease" aria-label="Explain what a redirection is please!">Explain what a redirection is please!</a></li>
+                <li>
+                    <a href="#impact-on-the-implementation" aria-label="Impact on the implementation">Impact on the implementation</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p>In the <a href="/posts/2024-11-13_implementing-dotnet-http-to/">previous post</a>, I detailed how I used the undocumented events from the BCL to create the <a href="https://www.nuget.org/packages/dotnet-http">dotnet-http CLI tool</a> to monitor your outgoing HTTP requests. After testing with older versions of .NET, I realized that the code needed to be updated and I’m sharing my findings in this post.</p>
+<p>The main point is that url redirections could have a major impact on requests latency:</p>
+<p><img loading="lazy" src="/posts/2024-12-13_monitor-http-redirects-to/1_w_2f8F9E6hGmoiGLBCMqfw.png"></p>
+<h2 id="always-test-supported-versions">Always test supported versions…<a hidden class="anchor" aria-hidden="true" href="#always-test-supported-versions">#</a></h2>
+<p>When I wrote the initial version of dotnet-http, I only tested it with .NET 8 and .NET 9 with limited formats of urls. Unfortunately, things went bad when I tried to monitor applications running on .NET 5 and .NET 6: no events are emitted by these versions of the BCL.</p>
+<p>So, the next step was to test .NET 7 and the result was simple: crash! After investigating, I realized that some events I looked at in .NET 8 source code did not have the same payload in .NET 7; even no payload at all:</p>
+<p><img loading="lazy" src="/posts/2024-12-13_monitor-http-redirects-to/1_2HJxVmyxQfzhCr1i7_dpWw.png"></p>
+<p>Even though there is no version field in the events payload, it is easy to check its size such as the following:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">OnConnectionEstablished</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">     <span class="n">DateTime</span> <span class="n">timestamp</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">int</span> <span class="n">threadId</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">     <span class="n">Guid</span> <span class="n">activityId</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">     <span class="n">Guid</span> <span class="n">relatedActivityId</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">byte</span><span class="p">[]</span> <span class="n">eventData</span>
+</span></span><span class="line"><span class="cl">     <span class="p">)</span>
+</span></span><span class="line"><span class="cl"> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">     <span class="p">...</span>
+</span></span><span class="line"><span class="cl">     <span class="n">EventSourcePayload</span> <span class="n">payload</span> <span class="p">=</span> <span class="k">new</span> <span class="n">EventSourcePayload</span><span class="p">(</span><span class="n">eventData</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">var</span> <span class="n">versionMajor</span> <span class="p">=</span> <span class="n">payload</span><span class="p">.</span><span class="n">GetByte</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">var</span> <span class="n">versionMinor</span> <span class="p">=</span> <span class="n">payload</span><span class="p">.</span><span class="n">GetByte</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">     <span class="c1">// in .NET 7, nothing else is available</span>
+</span></span><span class="line"><span class="cl">     <span class="n">Int64</span> <span class="n">connectionId</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">var</span> <span class="n">scheme</span> <span class="p">=</span> <span class="s">&#34;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">var</span> <span class="n">host</span> <span class="p">=</span> <span class="s">&#34;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     <span class="n">UInt32</span> <span class="n">port</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">var</span> <span class="n">path</span> <span class="p">=</span> <span class="s">&#34;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">     <span class="k">if</span> <span class="p">(</span><span class="n">eventData</span><span class="p">.</span><span class="n">Length</span> <span class="p">&gt;</span> <span class="m">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="p">{</span>
+</span></span><span class="line"><span class="cl">         <span class="n">connectionId</span> <span class="p">=</span> <span class="n">payload</span><span class="p">.</span><span class="n">GetInt64</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">         <span class="n">scheme</span> <span class="p">=</span> <span class="n">payload</span><span class="p">.</span><span class="n">GetString</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">         <span class="n">host</span> <span class="p">=</span> <span class="n">payload</span><span class="p">.</span><span class="n">GetString</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">         <span class="n">port</span> <span class="p">=</span> <span class="n">payload</span><span class="p">.</span><span class="n">GetUInt32</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">         <span class="n">path</span> <span class="p">=</span> <span class="n">payload</span><span class="p">.</span><span class="n">GetString</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">     <span class="p">}</span>
+</span></span><span class="line"><span class="cl">     <span class="p">...</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Another difference is that one even is not even emitted in .NET 7:</p>
+<p><img loading="lazy" src="/posts/2024-12-13_monitor-http-redirects-to/1_Iwpe5YVHJwyBnRFvHMTiQw.png"></p>
+<h2 id="explain-what-a-redirection-isplease">Explain what a redirection is please!<a hidden class="anchor" aria-hidden="true" href="#explain-what-a-redirection-isplease">#</a></h2>
+<p>Because I based the code on this Redirect event, I needed to find another way to support .NET 7 even though I would not have a redirected url to display. But first, let’s see what I’m talking about in terms of HTTP communication.</p>
+<p>When you try to get the content / status code behind a url, the code is following different phases with the related events:</p>
+<ul>
+<li>**Start
+**RequestStart</li>
+<li>**DNS resolution
+**ResolutionStart
+ResolutionStop/Fail</li>
+<li>**Socket connection
+**ConnectStart
+ConnectStop</li>
+<li>**Security hand check (HTTPS only)
+**HandshakeStart
+HandshakeStop/Failed</li>
+<li>**Request/response
+**RequestHeadersStart
+RequestHeadersStop
+ResponseHeadersStart
+ResponseHeadersStop
+Redirect (.NET 8+)
+ResponseContentStart
+ResponseContentStop</li>
+<li>**Request stop
+**RequestStop/Failed</li>
+</ul>
+<p>Based on the received url, a server can decide to answer that another url should be used instead. For example, if you call github with <strong>http://</strong> instead of <a href="https://,"><strong>https://</strong>,</a> such a redirection will happen. Without invasive tools such as Wireshark, these redirections are impossible to detect and could cause unnecessary delay.</p>
+<p>From the client perspective, this can be detected in the <strong>ResponseHeadersStop</strong> event payload that provides a status code. If its value is 301, then it is a redirection. The other effect of a redirection is that the BCL code will change the flow of events because it needs to start over with the new url from step 2. to step 6. As you can see, instead of paying the cost of just one request, two are actually emitted and processed.</p>
+<h2 id="impact-on-the-implementation">Impact on the implementation<a hidden class="anchor" aria-hidden="true" href="#impact-on-the-implementation">#</a></h2>
+<p>In addition to the payload size checks addition, my initial implementation was not properly handling the redirection because the values (timestamps and durations) where overridden by the events related to the second redirected url.</p>
+<p>The new implementation is splitting the request details into two classes. A base class that contains common fields to both parts of the request in case of redirection:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">class</span> <span class="nc">HttpRequestInfoBase</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">HttpRequestInfoBase</span><span class="p">(</span><span class="n">DateTime</span> <span class="n">timestamp</span><span class="p">,</span> <span class="kt">string</span> <span class="n">scheme</span><span class="p">,</span> <span class="kt">string</span> <span class="n">host</span><span class="p">,</span> <span class="kt">uint</span> <span class="n">port</span><span class="p">,</span> <span class="kt">string</span> <span class="n">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">       <span class="p">{</span>
+</span></span><span class="line"><span class="cl">           <span class="n">StartTime</span> <span class="p">=</span> <span class="n">timestamp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">           <span class="k">if</span> <span class="p">(</span><span class="n">scheme</span> <span class="p">==</span> <span class="kt">string</span><span class="p">.</span><span class="n">Empty</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">           <span class="p">{</span>
+</span></span><span class="line"><span class="cl">               <span class="n">Url</span> <span class="p">=</span> <span class="kt">string</span><span class="p">.</span><span class="n">Empty</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">           <span class="p">}</span>
+</span></span><span class="line"><span class="cl">           <span class="k">else</span>
+</span></span><span class="line"><span class="cl">           <span class="p">{</span>
+</span></span><span class="line"><span class="cl">               <span class="k">if</span> <span class="p">(</span><span class="n">port</span> <span class="p">!=</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">               <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">Url</span> <span class="p">=</span> <span class="s">$&#34;{scheme}://{host}:{port}{path}&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">               <span class="p">}</span>
+</span></span><span class="line"><span class="cl">               <span class="k">else</span>
+</span></span><span class="line"><span class="cl">               <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                   <span class="n">Url</span> <span class="p">=</span> <span class="s">$&#34;{scheme}://{host}:{path}&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">               <span class="p">}</span>
+</span></span><span class="line"><span class="cl">           <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">string</span> <span class="n">Url</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">DateTime</span> <span class="n">StartTime</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">DateTime</span> <span class="n">ReqRespStartTime</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">double</span> <span class="n">ReqRespDuration</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="c1">// DNS</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">double</span> <span class="n">DnsWait</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">DateTime</span> <span class="n">DnsStartTime</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">double</span> <span class="n">DnsDuration</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="c1">// HTTPS</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">double</span> <span class="n">HandshakeWait</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">DateTime</span> <span class="n">HandshakeStartTime</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">double</span> <span class="n">HandshakeDuration</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="c1">// socket connection</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">DateTime</span> <span class="n">SocketConnectionStartTime</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">double</span> <span class="n">SocketWait</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">double</span> <span class="n">SocketDuration</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">DateTime</span> <span class="n">QueueuingEndTime</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">double</span> <span class="n">QueueingDuration</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The second one inherits from the base class and contains addition details; including the details of the redirected url if any:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">class</span> <span class="nc">HttpRequestInfo</span> <span class="p">:</span> <span class="n">HttpRequestInfoBase</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">HttpRequestInfo</span><span class="p">(</span><span class="n">DateTime</span> <span class="n">timestamp</span><span class="p">,</span> <span class="kt">string</span> <span class="n">scheme</span><span class="p">,</span> <span class="kt">string</span> <span class="n">host</span><span class="p">,</span> <span class="kt">uint</span> <span class="n">port</span><span class="p">,</span> <span class="kt">string</span> <span class="n">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">           <span class="p">:</span>
+</span></span><span class="line"><span class="cl">           <span class="k">base</span><span class="p">(</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">scheme</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">port</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">       <span class="p">{</span>
+</span></span><span class="line"><span class="cl">       <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">HttpRequestInfoBase</span> <span class="n">Redirect</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="n">UInt32</span> <span class="n">StatusCode</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="c1">// HTTPS</span>
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">string</span> <span class="n">HandshakeErrorMessage</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="kd">public</span> <span class="kt">string</span> <span class="n">Error</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>A new instance of <strong>HttpRequestInfoBase</strong> is created when a 301 status code is received in <strong>HttpResponseHeaderStop</strong> handler:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">OnHttpResponseHeaderStop</span><span class="p">(</span><span class="kt">object</span> <span class="n">sender</span><span class="p">,</span> <span class="n">HttpRequestStatusEventArgs</span> <span class="n">e</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// used to detect redirection in .NET 8+</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">StatusCode</span> <span class="p">!=</span> <span class="m">301</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// create a new request info for the redirected request</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// because .NET 7 does not emit a Redirect event, we need to create a new request info here</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// --&gt; it means that the redirect url will be empty in .NET 7</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">root</span> <span class="p">=</span> <span class="n">GetRoot</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">ActivityId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">_requests</span><span class="p">.</span><span class="n">TryGetValue</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="k">out</span> <span class="n">HttpRequestInfo</span> <span class="n">info</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">info</span><span class="p">.</span><span class="n">Redirect</span> <span class="p">=</span> <span class="k">new</span> <span class="n">HttpRequestInfoBase</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">Timestamp</span><span class="p">,</span> <span class="s">&#34;&#34;</span><span class="p">,</span> <span class="s">&#34;&#34;</span><span class="p">,</span> <span class="m">0</span><span class="p">,</span> <span class="s">&#34;&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="c1">// if you really want to have the duration of both original request + redirected request,</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// then do the following:</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">//    info.ReqRespDuration = (e.Timestamp - info.ReqRespStartTime).TotalMilliseconds;</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// However, I prefer to show the duration of the redirected request only to more easily</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// compute the cost of the initial redirected request = total duration - other durations</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>For .NET 8+, the redirected url is provided to the <strong>Redirect</strong> handler and stored in the Url field of the instance created in the previous handler:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">OnHttpRedirect</span><span class="p">(</span><span class="kt">object</span> <span class="n">sender</span><span class="p">,</span> <span class="n">HttpRedirectEventArgs</span> <span class="n">e</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// since this is an Info event, the activityID is the root</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">root</span> <span class="p">=</span> <span class="n">ActivityHelpers</span><span class="p">.</span><span class="n">ActivityPathString</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">ActivityId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">_requests</span><span class="p">.</span><span class="n">TryGetValue</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="k">out</span> <span class="n">HttpRequestInfo</span> <span class="n">info</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">info</span><span class="p">.</span><span class="n">Redirect</span><span class="p">.</span><span class="n">Url</span> <span class="p">=</span> <span class="n">e</span><span class="p">.</span><span class="n">RedirectUrl</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>In each handler of events that could be received for both initial and redirected requests,</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">OnHttpResponseContentStop</span><span class="p">(</span><span class="kt">object</span> <span class="n">sender</span><span class="p">,</span> <span class="n">EventPipeBaseArgs</span> <span class="n">e</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">       <span class="kt">var</span> <span class="n">root</span> <span class="p">=</span> <span class="n">GetRoot</span><span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">ActivityId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">       <span class="k">if</span> <span class="p">(!</span><span class="n">_requests</span><span class="p">.</span><span class="n">TryGetValue</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="k">out</span> <span class="n">HttpRequestInfo</span> <span class="n">info</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">       <span class="p">{</span>
+</span></span><span class="line"><span class="cl">           <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">       <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">       <span class="k">if</span> <span class="p">(</span><span class="n">info</span><span class="p">.</span><span class="n">Redirect</span> <span class="p">==</span> <span class="kc">null</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">       <span class="p">{</span>
+</span></span><span class="line"><span class="cl">           <span class="n">info</span><span class="p">.</span><span class="n">ReqRespDuration</span> <span class="p">=</span> <span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">Timestamp</span> <span class="p">-</span> <span class="n">info</span><span class="p">.</span><span class="n">ReqRespStartTime</span><span class="p">).</span><span class="n">TotalMilliseconds</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">       <span class="p">}</span>
+</span></span><span class="line"><span class="cl">       <span class="k">else</span>
+</span></span><span class="line"><span class="cl">       <span class="p">{</span>
+</span></span><span class="line"><span class="cl">           <span class="n">info</span><span class="p">.</span><span class="n">Redirect</span><span class="p">.</span><span class="n">ReqRespDuration</span> <span class="p">=</span> <span class="p">(</span><span class="n">e</span><span class="p">.</span><span class="n">Timestamp</span> <span class="p">-</span> <span class="n">info</span><span class="p">.</span><span class="n">Redirect</span><span class="p">.</span><span class="n">ReqRespStartTime</span><span class="p">).</span><span class="n">TotalMilliseconds</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">       <span class="p">}</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The wait time and durations are now computed as the events are received and aggregated at the end of the request by adding the value of both parts (initial and redirected if any:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">double</span> <span class="n">dnsDuration</span> <span class="p">=</span> <span class="n">info</span><span class="p">.</span><span class="n">DnsDuration</span> <span class="p">+</span> <span class="p">((</span><span class="n">info</span><span class="p">.</span><span class="n">Redirect</span> <span class="p">!=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">?</span> <span class="n">info</span><span class="p">.</span><span class="n">Redirect</span><span class="p">.</span><span class="n">DnsDuration</span> <span class="p">:</span> <span class="m">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">dnsDuration</span> <span class="p">&gt;</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">double</span> <span class="n">dnsWait</span> <span class="p">=</span> <span class="n">info</span><span class="p">.</span><span class="n">DnsWait</span> <span class="p">+</span> <span class="p">((</span><span class="n">info</span><span class="p">.</span><span class="n">Redirect</span> <span class="p">!=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">?</span> <span class="n">info</span><span class="p">.</span><span class="n">Redirect</span><span class="p">.</span><span class="n">DnsWait</span> <span class="p">:</span> <span class="m">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">Write</span><span class="p">(</span><span class="s">$&#34;{dnsWait,9:F3} | {dnsDuration,9:F3} | &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">else</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">Write</span><span class="p">(</span><span class="s">$&#34;          |           | &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>As a conclusion, you should try to monitor these redirections by using my <a href="https://www.nuget.org/packages/dotnet-http">dotnet-http</a> CLI tool. Feel free to download it or install it with the following command line: <strong>dotnet tool install -g dotnet-http <strong>or update to the latest version with</strong>: dotnet tool update -g dotnet-http</strong></p>
+<p>You could also integrate some event listening code into your framework that simply handles the <strong>ResponseHeadersStop</strong>/<strong>Redirect</strong> events.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/dotnet-tools/">Dotnet-Tools</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Measuring the impact of locks and waits on latency in your .NET apps</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2024-11-13_implementing-dotnet-http-to/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Implementing dotnet-http to monitor your HTTP requests</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Tags on Welcome to Christophe Nasarre&#39;s Blog</title>
+    <link>http://localhost:1313/tags/</link>
+    <description>Recent content in Tags on Welcome to Christophe Nasarre&#39;s Blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Wed, 11 Feb 2026 09:16:11 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>.NET</title>
+      <link>http://localhost:1313/tags/.net/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/.net/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>C#</title>
+      <link>http://localhost:1313/tags/c%23/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/c%23/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>C&#43;&#43;</title>
+      <link>http://localhost:1313/tags/c&#43;&#43;/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/c&#43;&#43;/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>ClrMD</title>
+      <link>http://localhost:1313/tags/clrmd/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/clrmd/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Cursor</title>
+      <link>http://localhost:1313/tags/cursor/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/cursor/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>DbgHelp</title>
+      <link>http://localhost:1313/tags/dbghelp/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/dbghelp/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Debugging</title>
+      <link>http://localhost:1313/tags/debugging/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/debugging/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Diagnostics</title>
+      <link>http://localhost:1313/tags/diagnostics/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/diagnostics/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Memory</title>
+      <link>http://localhost:1313/tags/memory/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/memory/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>PDB</title>
+      <link>http://localhost:1313/tags/pdb/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/pdb/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Performance</title>
+      <link>http://localhost:1313/tags/performance/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/tags/performance/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>Dotnet-Tools</title>
+      <link>http://localhost:1313/tags/dotnet-tools/</link>
+      <pubDate>Thu, 13 Mar 2025 10:50:55 +0000</pubDate>
+      <guid>http://localhost:1313/tags/dotnet-tools/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>HTTP</title>
+      <link>http://localhost:1313/tags/http/</link>
+      <pubDate>Thu, 13 Mar 2025 10:50:55 +0000</pubDate>
+      <guid>http://localhost:1313/tags/http/</guid>
+      <description></description>
+    </item>
+    <item>
+      <title>GC</title>
+      <link>http://localhost:1313/tags/gc/</link>
+      <pubDate>Sun, 13 Oct 2024 12:12:37 +0000</pubDate>
+      <guid>http://localhost:1313/tags/gc/</guid>
+      <description></description>
+    </item>
+  </channel>
+</rss>

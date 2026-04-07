@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>In-process CLR event listeners with .NET Core 2.2 | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, GC, diagnostics, memory, dotnet-tools, Cursor, HTTP">
+<meta name="description" content="Write your own EventListener class">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2018-12-06_in-process-clr-event/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2018-12-06_in-process-clr-event/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      In-process CLR event listeners with .NET Core 2.2
+    </h1>
+    <div class="post-description">
+      Write your own EventListener class
+    </div>
+    <div class="post-meta"><span title='2018-12-06 13:52:09.675 +0000 UTC'>December 6, 2018</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2018-12-06_in-process-clr-event/1_zc1BKfAHkpvrZlHPbUvuYA.png" alt="">
+        
+</figure>
+
+  <div class="post-content"><hr>
+<p><img loading="lazy" src="/posts/2018-12-06_in-process-clr-event/1_zc1BKfAHkpvrZlHPbUvuYA.png"></p>
+<p>As the <a href="https://devblogs.microsoft.com/dotnet/announcing-net-core-2-2/?WT.mc_id=DT-MVP-5003325">.NET Core 2.2 blog post</a> introduced, it is now possible for a .NET Core application to listen to the events generated by the CLR that power it up. If you remember the <a href="http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/">Grab ETW Session, Providers and Events</a> post, the CLR is emitting a lot of valuable events through ETW on Windows and LTTng on Linux. Thanks to <a href="https://www.nuget.org/packages/Microsoft.Diagnostics.Tracing.TraceEvent/">TraceEvent nuget package</a>, it is not that difficult to fetch these events at runtime on Windows, either in-process or out of process. However, it is much more complicated to achieve the same goal on Linux… With .NET Core 2.2, it is now super easy to listen to the events emitted by the CLR while your application is running: you simply need to implement a class that derives from <a href="https://docs.microsoft.com/en-us/dotnet/api/system.diagnostics.tracing.eventlistener?WT.mc_id=DT-MVP-5003325?view=netcore-2.2">System.Diagnostics.Tracing.EventListener</a> and create an instance of it. Nothing more.</p>
+<p>This class exists since .NET Framework 4.5 and .NET Core 1.0 but it could only be used to listen events pushed by managed code. Since .NET Core 2.2, it can also be used to listen to native events pushed by the CLR. The usage is simple, even a little bit magical.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">sealed</span> <span class="k">class</span> <span class="nc">GcFinalizersEventListener</span> <span class="p">:</span> <span class="n">EventListener</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// from https://docs.microsoft.com/en-us/dotnet/framework/performance/garbage-collection-etw-events</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kd">const</span> <span class="kt">int</span> <span class="n">GC_KEYWORD</span> <span class="p">=</span>                 <span class="m">0x0000001</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kd">const</span> <span class="kt">int</span> <span class="n">TYPE_KEYWORD</span> <span class="p">=</span>               <span class="m">0x0080000</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kd">const</span> <span class="kt">int</span> <span class="n">GCHEAPANDTYPENAMES_KEYWORD</span> <span class="p">=</span> <span class="m">0x1000000</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">protected</span> <span class="kd">override</span> <span class="k">void</span> <span class="n">OnEventSourceCreated</span><span class="p">(</span><span class="n">EventSource</span> <span class="n">eventSource</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;{eventSource.Guid} | {eventSource.Name}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// look for .NET Garbage Collection events</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">eventSource</span><span class="p">.</span><span class="n">Name</span><span class="p">.</span><span class="n">Equals</span><span class="p">(</span><span class="s">&#34;Microsoft-Windows-DotNETRuntime&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">EnableEvents</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">                <span class="n">eventSource</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">                <span class="n">EventLevel</span><span class="p">.</span><span class="n">Verbose</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">                <span class="p">(</span><span class="n">EventKeywords</span><span class="p">)</span> <span class="p">(</span><span class="n">GC_KEYWORD</span> <span class="p">|</span> <span class="n">GCHEAPANDTYPENAMES_KEYWORD</span> <span class="p">|</span> <span class="n">TYPE_KEYWORD</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// from https://blogs.msdn.microsoft.com/dotnet/2018/12/04/announcing-net-core-2-2/</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Called whenever an event is written.</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">protected</span> <span class="kd">override</span> <span class="k">void</span> <span class="n">OnEventWritten</span><span class="p">(</span><span class="n">EventWrittenEventArgs</span> <span class="n">eventData</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">...</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Program</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">static</span> <span class="k">void</span> <span class="n">Main</span><span class="p">(</span><span class="kt">string</span><span class="p">[]</span> <span class="n">args</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">GcFinalizersEventListener</span> <span class="n">listener</span> <span class="p">=</span> <span class="k">new</span> <span class="n">GcFinalizersEventListener</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;\nPress ENTER to trigger a few finalizers...&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">ReadLine</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">i</span> <span class="p">&lt;</span> <span class="m">4</span><span class="p">;</span> <span class="n">i</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">Thread</span> <span class="n">t</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Thread</span><span class="p">(()=&gt;</span> <span class="p">{});</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="n">GC</span><span class="p">.</span><span class="n">Collect</span><span class="p">(</span><span class="m">2</span><span class="p">,</span> <span class="n">GCCollectionMode</span><span class="p">.</span><span class="n">Forced</span><span class="p">,</span> <span class="kc">true</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;\nPress ENTER to exit...&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">ReadLine</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>First, you implement a class that derives from <code>EventListener</code> and override the following two methods:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl">   <span class="k">void</span> <span class="n">OnEventSourceCreated</span><span class="p">(</span><span class="n">EventSource</span> <span class="n">eventSource</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="k">void</span> <span class="n">OnEventWritten</span><span class="p">(</span><span class="n">EventWrittenEventArgs</span> <span class="n">eventData</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>As soon as you new up an instance of your class, the <code>OnEventSourceCreated</code>override is called for each <em>event source</em> defined in the application. An event source, as its name implies, produces events. You can define your own in managed code if you wish. For the sake of this post, I will focus on listening to the <em><strong>Microsoft-Windows-DotNETRuntime</strong></em> event source. The <code>EventSource</code>instance passed to the <code>OnEventSourceCreated</code>method provides two interesting properties to let us identify the available sources. The following code :</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">protected</span> <span class="kd">override</span> <span class="k">void</span> <span class="n">OnEventSourceCreated</span><span class="p">(</span><span class="n">EventSource</span> <span class="n">eventSource</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;{eventSource.Guid} | {eventSource.Name}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>generates the following output :</p>
+<pre tabindex="0"><code>5e5bb766-bbfc-5662-0548-1d44fad9bb56 | Microsoft-Windows-DotNETRuntime
+ 2e5dba47-a3d2-4d16-8ee0-6671ffdcd7b5 | System.Threading.Tasks.TplEventSource
+ 8e9f5090-2d75-4d03-8a81-e5afbf85daf1 | System.Diagnostics.Eventing.FrameworkEventSource
+</code></pre><p>You can imagine that the first one is the source we are interested in listening to its events!</p>
+<p>By default, there is no connection between the sources and your listeners: you need to enable the source by calling the <code>EnableEvents</code>method in your <code>OnEventSourceCreated</code>override. This <code>EventListener</code>method takes the following arguments:</p>
+<ul>
+<li><code>EventSource eventSource</code>: the event source you want to listen to</li>
+<li><code>EventLevel level</code>: minimum verbosity level for the received events</li>
+<li><code>EventKeywords matchAnyKeyword</code>: a keyword to filter on specific events</li>
+</ul>
+<p>The Microsoft Docs provides <a href="https://docs.microsoft.com/en-us/dotnet/framework/performance/clr-etw-keywords-and-levels?WT.mc_id=DT-MVP-5003325">the level and keywords</a> for <a href="https://docs.microsoft.com/en-us/dotnet/framework/performance/clr-etw-events?WT.mc_id=DT-MVP-5003325">each events</a> documented in the CLR. For the complete list, you take a look at <a href="https://github.com/dotnet/coreclr/blob/master/src/vm/ClrEtwAll.man">ClrETWAll.man in CoreClr source code</a> or in <code>ClrTraceEventParser</code> class of TraceEvent. In the sample code at the beginning of this post, I selected a group of keywords <code>GC_KEYWORD | GCHEAPANDTYPENAMES_KEYWORD | TYPE_KEYWORD</code> to receive only events related to the garbage collector and type information (<a href="http://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/">read this previous post for more details</a>).</p>
+<p>Once the source has been paired to the listener, each time an event is emitted by the source with the right level and for the given keywords, the <code>OnEventWritten</code>override will get called. The <code>EventWrittenEventArgs</code>instance received as a parameter describes each event.</p>
+<p><img loading="lazy" src="/posts/2018-12-06_in-process-clr-event/1_JPlKjHnKXY02YiWKrrWLMw.png"></p>
+<p>The <code>Payload</code> contains the value of the different properties stored in a <code>ReadOnlyCollection</code> and the corresponding property names are provided via the <code>ReadOnlyCollection</code> <code>PayLoadNames</code>. The following code shows how to extract all properties values:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="c1">// from https://blogs.msdn.microsoft.com/dotnet/2018/12/04/announcing-net-core-2-2/</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// Called whenever an event is written.</span>
+</span></span><span class="line"><span class="cl"><span class="kd">protected</span> <span class="kd">override</span> <span class="k">void</span> <span class="n">OnEventWritten</span><span class="p">(</span><span class="n">EventWrittenEventArgs</span> <span class="n">eventData</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Write the contents of the event to the console.</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;ThreadID = {eventData.OSThreadId} ID = {eventData.EventId} Name = {eventData.EventName}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">i</span> <span class="p">&lt;</span> <span class="n">eventData</span><span class="p">.</span><span class="n">Payload</span><span class="p">.</span><span class="n">Count</span><span class="p">;</span> <span class="n">i</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">string</span> <span class="n">payloadString</span> <span class="p">=</span> <span class="n">eventData</span><span class="p">.</span><span class="n">Payload</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">!=</span> <span class="kc">null</span> <span class="p">?</span> <span class="n">eventData</span><span class="p">.</span><span class="n">Payload</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">ToString</span><span class="p">()</span> <span class="p">:</span> <span class="kt">string</span><span class="p">.</span><span class="n">Empty</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;    Name = \&#34;</span><span class="p">{</span><span class="n">eventData</span><span class="p">.</span><span class="n">PayloadNames</span><span class="p">[</span><span class="n">i</span><span class="p">]}</span><span class="err">\</span><span class="s">&#34; Value = \&#34;{payloadString}\&#34;&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;\n&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Here is the kind of output you get for common garbage collector and finalizer events:</p>
+<pre tabindex="0"><code>ThreadID = 17456 ID = 200 Name = IncreaseMemoryPressure
+Name = &#34;BytesAllocated&#34; Value = &#34;1672&#34;
+Name = &#34;ClrInstanceID&#34; Value = &#34;8&#34;
+</code></pre><pre tabindex="0"><code>ThreadID = 17456 ID = 9 Name = GCSuspendEEBegin_V1
+Name = &#34;Reason&#34; Value = &#34;1&#34;
+Name = &#34;Count&#34; Value = &#34;0&#34;
+Name = &#34;ClrInstanceID&#34; Value = &#34;8&#34;
+</code></pre><pre tabindex="0"><code>ThreadID = 17456 ID = 8 Name = GCSuspendEEEnd_V1
+Name = &#34;ClrInstanceID&#34; Value = &#34;8&#34;
+</code></pre><pre tabindex="0"><code>ThreadID = 17456 ID = 35 Name = GCTriggered
+Name = &#34;Reason&#34; Value = &#34;10&#34;
+Name = &#34;ClrInstanceID&#34; Value = &#34;8&#34;
+</code></pre><pre tabindex="0"><code>ThreadID = 17456 ID = 1 Name = GCStart_V2
+Name = &#34;Count&#34; Value = &#34;1&#34;
+Name = &#34;Depth&#34; Value = &#34;2&#34;
+Name = &#34;Reason&#34; Value = &#34;10&#34;
+Name = &#34;Type&#34; Value = &#34;0&#34;
+Name = &#34;ClrInstanceID&#34; Value = &#34;8&#34;
+Name = &#34;ClientSequenceNumber&#34; Value = &#34;0&#34;
+</code></pre><pre tabindex="0"><code>ThreadID = 18860 ID = 29 Name = FinalizeObject
+Name = &#34;TypeID&#34; Value = &#34;1210056592&#34;
+Name = &#34;ObjectID&#34; Value = &#34;1371069040&#34;
+Name = &#34;ClrInstanceID&#34; Value = &#34;8&#34;
+</code></pre><pre tabindex="0"><code>ThreadID = 18860 ID = 15 Name = BulkType
+Name = &#34;Count&#34; Value = &#34;1&#34;
+Name = &#34;ClrInstanceID&#34; Value = &#34;8&#34;
+</code></pre><p>The fact that there is no strongly typed event argument per event is not as good as what TraceEvent provides. In addition, after a few tests, it seems that the .NET Core 2.2 implementation <a href="https://github.com/dotnet/coreclr/issues/21380">is not complete</a>:</p>
+<ul>
+<li>GC events are not all received when in Server Mode</li>
+<li>Properties are missing for BulkType event necessary to figure out finalizer type names</li>
+</ul>
+<p>However, with <code>EventListener</code>, Microsoft is giving us a very simple way to get valuable information, in-process, from the CLR while the application is running. A forthcoming blog post will show how to leverage this infrastructure to provide insights on how the garbage collection impacts an application.</p>
+<p>Before leaving you building your own event listeners, you should know a couple of last details. Under the hood, the framework is <a href="https://github.com/dotnet/coreclr/blob/78570a239101f69200cfceab5e7527ca8cc312b8/src/System.Private.CoreLib/src/System/Diagnostics/Eventing/EventPipeEventDispatcher.cs#L141">creating a dedicated thread</a> for you that will execute the two <code>OnXXX</code>methods of your <code>EventListener</code>-derived class. It means that your code should not block or spend to much time processing the events if you want to keep on receiving events at a regular pace.</p>
+<p>This thread will last as long as one of your listeners still exists. When I say “exist”, I mean until you decide to dispose them. This is the way for you to tell the sources that you are no more interested in receiving events. When all your listeners are disposed, then the processing thread will exit.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/dotnet-tools/">Dotnet-Tools</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2018-12-15_spying-on-net-garbage/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Spying on .NET Garbage Collector with TraceEvent</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2018-11-13_get-process-name-challenge/">
+    <span class="title">Next »</span>
+    <br>
+    <span>[C#] Get-process-name challenge on a Friday afternoon</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

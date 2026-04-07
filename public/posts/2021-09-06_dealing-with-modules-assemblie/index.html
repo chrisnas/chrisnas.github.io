@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Dealing with Modules, Assemblies and Types with CLR Profiling APIs | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, performance, memory">
+<meta name="description" content="This episode explains how to get the type name and generic parameters hidden behind a ClassID with the .NET Profiling API">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2021-09-06_dealing-with-modules-assemblie/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2021-09-06_dealing-with-modules-assemblie/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Dealing with Modules, Assemblies and Types with CLR Profiling APIs
+    </h1>
+    <div class="post-description">
+      This episode explains how to get the type name and generic parameters hidden behind a ClassID with the .NET Profiling API
+    </div>
+    <div class="post-meta"><span title='2021-09-06 06:01:13.341 +0000 UTC'>September 6, 2021</span>&nbsp;·&nbsp;<span>10 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2021-09-06_dealing-with-modules-assemblie/1_U7o7D7K4u2OztCqK-xYrIQ.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#identifying-the-module-andassembly" aria-label="Identifying the module and assembly">Identifying the module and assembly</a></li>
+                <li>
+                    <a href="#id-or-token-it-depends-on-which-profiling-api-touse" aria-label="ID or Token: it depends on which profiling API to use">ID or Token: it depends on which profiling API to use</a></li>
+                <li>
+                    <a href="#identifying-thetype" aria-label="Identifying the type">Identifying the type</a></li>
+                <li>
+                    <a href="#from-a-classid-to-a-classname" aria-label="From a ClassID to a class name">From a ClassID to a class name</a></li>
+                <li>
+                    <a href="#references" aria-label="References">References</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>In<a href="/posts/2021-08-07_start-journey-into-the/"> the first post</a> of this series dedicated to CLR Profiling API, you have seen how to get a <strong>FunctionID</strong> each time a managed method is executed in a .NET application. As David Broman (source of most of the profiling implementation details at Microsoft) explains, a <strong>FunctionID</strong> is a pointer to an internal data structure of the CLR called a <strong>MethodDesc</strong>. For us, it is just an opaque value that is usable in different CLR APIs. So what if you would like to know the name of the method behind this <strong>FunctionID</strong>?</p>
+<p>Unlike what you might think, this first question is not an easy one, especially if you would like to get the complete signature of the method such as what you get in Visual Studio Call Stack panel:</p>
+<blockquote>
+<p>ProfilingTest.dll!PublicClass.ClassParamReturnClass(ClassType obj)</p>
+</blockquote>
+<p>You will have to get the module name (i.e. the assembly where the method type is defined), the type name, the method name and the list of its parameters type and name.</p>
+<p>This post deals with the notions of module, assembly and type in addition to introducing the .NET Metadata API.</p>
+<h2 id="identifying-the-module-andassembly">Identifying the module and assembly<a hidden class="anchor" aria-hidden="true" href="#identifying-the-module-andassembly">#</a></h2>
+<p>I’m sure that most of you know what an assembly is: this is what gets generated when you compile a Class Library in Visual Studio. Easy answer. However, .NET (unlike Visual Studio) supports the notion of <a href="https://docs.microsoft.com/en-us/dotnet/framework/app-domains/build-multifile-assembly?WT.mc_id=DT-MVP-5003325">multi-module assembly creation</a> bound to several “<a href="https://docs.microsoft.com/en-us/dotnet/standard/assembly/?WT.mc_id=DT-MVP-5003325">modules</a>”. Each module can contain types and resources and the assembly contains the manifest listing all the modules defining the assembly.</p>
+<p>This is why the profiling API allows you to get both assembly and module. Let’s use <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo-getfunctioninfo-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo::GetFunctionInfo</strong></a> to find out which module and assembly is implementing the type of a given <strong>FunctionID</strong>.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">ClassID</span> <span class="n">classId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">ModuleID</span> <span class="n">moduleId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">mdToken</span> <span class="n">mdtokenFunction</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">pInfo</span><span class="p">-&gt;</span><span class="n">GetFunctionInfo</span><span class="p">(</span><span class="n">functionId</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">classId</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">moduleId</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">mdtokenFunction</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Now that you have a <strong>ModuleID</strong>, you can call <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo-getmoduleinfo-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo::GetModuleInfo</strong></a> to get its name, load address and assembly. The usage pattern of this API is common in COM: first you call it to get the size of the buffer to copy the name and then you call it a second time with the newly allocated buffer:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">LPCBYTE</span> <span class="n">loadAddress</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">ULONG</span> <span class="n">nameLen</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">AssemblyID</span> <span class="n">assemblyId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="p">=</span> <span class="n">pInfo</span><span class="p">-&gt;</span><span class="n">GetModuleInfo</span><span class="p">(</span><span class="n">moduleId</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">loadAddress</span><span class="p">,</span> <span class="n">nameLen</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">nameLen</span><span class="p">,</span> <span class="n">NULL</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">assemblyId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">SUCCEEDED</span><span class="p">(</span><span class="n">hr</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">WCHAR</span><span class="p">*</span> <span class="n">pszName</span> <span class="p">=</span> <span class="k">new</span> <span class="n">WCHAR</span><span class="p">[</span><span class="n">nameLen</span><span class="p">];</span>  <span class="c1">// count the trailing \0</span>
+</span></span><span class="line"><span class="cl">   <span class="n">pInfo</span><span class="p">-&gt;</span><span class="n">GetModuleInfo</span><span class="p">(</span><span class="n">moduleId</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">loadAddress</span><span class="p">,</span> <span class="n">nameLen</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">nameLen</span><span class="p">,</span> <span class="n">pszName</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">                        <span class="p">&amp;</span><span class="n">assemblyId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="n">oss</span> <span class="p">&lt;&lt;</span> <span class="n">L</span><span class="s">&#34;(&#34;</span> <span class="p">&lt;&lt;</span> <span class="n">pszName</span> <span class="p">&lt;&lt;</span> <span class="n">L</span><span class="s">&#34;)&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">delete</span> <span class="p">[]</span> <span class="n">pszName</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span>
+</span></span><span class="line"><span class="cl">   <span class="n">oss</span> <span class="p">&lt;&lt;</span> <span class="n">L</span><span class="s">&#34;(UNKNOWN)&#34;</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that the module name is the full path name of the module file.</p>
+<p>Here is the code that calls <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo-getassemblyinfo-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo::GetAssemblyInfo</strong></a> to get the assembly name now that you have the <strong>AssemblyID</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">hr</span> <span class="p">=</span> <span class="n">pInfo</span><span class="p">-&gt;</span><span class="n">GetAssemblyInfo</span><span class="p">(</span><span class="n">assemblyId</span><span class="p">,</span> <span class="m">0</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">nameLen</span><span class="p">,</span> <span class="n">NULL</span><span class="p">,</span> <span class="n">NULL</span><span class="p">,</span> <span class="n">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">SUCCEEDED</span><span class="p">(</span><span class="n">hr</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">WCHAR</span><span class="p">*</span> <span class="n">pszName</span> <span class="p">=</span> <span class="k">new</span> <span class="n">WCHAR</span><span class="p">[</span><span class="n">nameLen</span><span class="p">];</span>  <span class="c1">// count the trailing \0</span>
+</span></span><span class="line"><span class="cl">   <span class="n">hr</span> <span class="p">=</span> <span class="n">pInfo</span><span class="p">-&gt;</span><span class="n">GetAssemblyInfo</span><span class="p">(</span><span class="n">assemblyId</span><span class="p">,</span> <span class="n">nameLen</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">nameLen</span><span class="p">,</span> <span class="n">pszName</span><span class="p">,</span> <span class="n">NULL</span><span class="p">,</span> <span class="n">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="n">oss</span> <span class="p">&lt;&lt;</span> <span class="n">pszName</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">delete</span> <span class="p">[]</span> <span class="n">pszName</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span>
+</span></span><span class="line"><span class="cl">   <span class="n">oss</span> <span class="p">&lt;&lt;</span> <span class="n">L</span><span class="s">&#34;&lt;UNKNOWN&gt;&#34;</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The assembly name does not contain the file extension such as .dll or .so.</p>
+<h2 id="id-or-token-it-depends-on-which-profiling-api-touse">ID or Token: it depends on which profiling API to use<a hidden class="anchor" aria-hidden="true" href="#id-or-token-it-depends-on-which-profiling-api-touse">#</a></h2>
+<p>it is important to discuss what kind of information you get from the different profiling APIs. Like <strong>FunctionID</strong>, <strong>ClassID</strong> and <strong>ModuleID</strong> are opaque pointers to CLR internal data structures. They are used by the runtime to map into memory metadata generated by the compiler. The metadata identifiers are usually referenced as “token” and the <strong>mdToken</strong> type simply stands for “metadata token”. Unlike the different <strong>xxxID</strong> types with values different each time the code runs, the metadata tokens stay the same because they come from the compiled assembly. While debugging, it is good to be able to compare what token you get against their corresponding value in an assembly. As an example, here is what you get with ILSpy while browsing the medatata:</p>
+<p><img loading="lazy" src="/posts/2021-09-06_dealing-with-modules-assemblie/1_EBaPkQAwCdKlDEH790bb8g.png"></p>
+<p>Each kind of metadata is encoded into the first 2 digits so it is easy to see what you are manipulating. The 06 prefix tells you that you are dealing with a method:</p>
+<p><img loading="lazy" src="/posts/2021-09-06_dealing-with-modules-assemblie/1_V6ZnzD7VLwBbzBnsXTirIw.png"></p>
+<p>Instead of <strong>ICorProfilerInfo</strong>, you need to use <a href="https://docs.microsoft.com/en-us/windows/win32/api/rometadataapi/nn-rometadataapi-imetadataimport?WT.mc_id=DT-MVP-5003325"><strong>IMetaDataImport</strong></a> to access information behind the metadata tokens. Since the metadata is bound to a given module, you have to call <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo-getmodulemetadata-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo:: GetModuleMetaData</strong></a> to get the implementation corresponding to a given <strong>ModuleID</strong>.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">IMetaDataImport</span><span class="o">*</span> <span class="n">pMetaDataImport</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">HRESULT</span> <span class="n">hr</span> <span class="o">=</span> <span class="n">pInfo</span><span class="o">-&gt;</span><span class="n">GetModuleMetaData</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">   <span class="n">moduleId</span><span class="p">,</span> <span class="n">ofRead</span><span class="p">,</span> <span class="n">IID_IMetaDataImport</span><span class="p">,</span> <span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">IUnknown</span><span class="o">**&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pMetaDataImport</span><span class="p">));</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>For the rest of the series, I will do my best to present which profiling/metadata API to use for what purpose. And in some cases, you will need both.</p>
+<h2 id="identifying-thetype">Identifying the type<a hidden class="anchor" aria-hidden="true" href="#identifying-thetype">#</a></h2>
+<p>After the module details, let’s see what we can get for the type that implements a given <strong>FunctionID</strong>. For one of my test, I defined the following C# generic type:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">GenericPublicClass</span><span class="p">&lt;</span><span class="n">K</span><span class="p">,</span> <span class="n">V</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span> 
+</span></span><span class="line"><span class="cl"><span class="na">   [MethodImpl(MethodImplOptions.NoInlining)]</span>
+</span></span><span class="line"><span class="cl">   <span class="kd">public</span> <span class="kt">string</span> <span class="n">Store</span><span class="p">(</span><span class="n">K</span> <span class="n">key</span><span class="p">,</span> <span class="n">IEnumerable</span><span class="p">&lt;</span><span class="n">V</span><span class="p">&gt;</span> <span class="n">val</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="k">return</span> <span class="s">$&#34;{key} = {val.Count()} items&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>It can be used like the following:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">g1</span> <span class="p">=</span> <span class="k">new</span> <span class="n">GenericPublicClass</span><span class="p">&lt;</span><span class="kt">string</span><span class="p">,</span> <span class="kt">int</span><span class="p">&gt;();</span>
+</span></span><span class="line"><span class="cl"><span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="n">g1</span><span class="p">.</span><span class="n">Store</span><span class="p">(</span><span class="s">&#34;secret&#34;</span><span class="p">,</span> <span class="k">new</span> <span class="kt">int</span><span class="p">[]</span> <span class="p">{</span> <span class="m">1</span><span class="p">,</span> <span class="m">2</span><span class="p">,</span> <span class="m">3</span><span class="p">,</span> <span class="m">4</span><span class="p">,</span> <span class="m">5</span> <span class="p">}));</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Why am I starting with a generic type? That way, you will better understand that this feature has been added after the initial profiling API shipped and is not that well integrated. Basically, the first iteration of <strong>ICorProfilerInfo</strong> did not deal with generics but the second one <strong>ICorProfilerInfo2</strong> does.</p>
+<p>But first, let’s summarize <a href="https://docs.microsoft.com/en-us/dotnet/standard/generics/?WT.mc_id=DT-MVP-5003325/">a few basics about generics</a>. When you define a generic type and generic methods such as for my <strong>GenericPublicClass</strong>, the C# compiler generates the metadata for the <em>generic</em> <em>type definition</em> that acts as a template. The <em>generic type parameters</em> (K and V in my case) are placeholders that will be instanciated by <em>generic type arguments</em> to get a final <em>generic</em> <em>constructed type</em>.</p>
+<p>The important part to understand for our purpose is the fact that metadata will only contain generic type definitions</p>
+<p><img loading="lazy" src="/posts/2021-09-06_dealing-with-modules-assemblie/1_zbCei-dGvTiRWmemzVBkXA.png"></p>
+<p>The name stored in the metadata ends with the ` character followed by the number of generic type parameters. This is what you get when you call <strong>GetType().Name</strong> on a generic instance in C#.</p>
+<p>As shown earlier, <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo-getfunctioninfo-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo::GetFunctionInfo</strong></a> is used to get the <strong>ClassID</strong> of the type implementing the given <strong>FunctionID</strong>. Unfortunately, in case of a generic type, it returns <strong>S_OK</strong> but the <strong>ClassID</strong> you get is 0. In that case, you know you have to call <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo2-getfunctioninfo2-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo2::GetFunctionInfo2</strong></a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">HRESULT</span> <span class="nf">GetFunctionInfo2</span><span class="p">(</span>  
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">in</span><span class="p">]</span>  <span class="n">FunctionID</span> <span class="n">funcId</span><span class="p">,</span>  
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">in</span><span class="p">]</span>  <span class="n">COR_PRF_FRAME_INFO</span> <span class="n">frameInfo</span><span class="p">,</span>  
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">out</span><span class="p">]</span> <span class="n">ClassID</span> <span class="o">*</span><span class="n">pClassId</span><span class="p">,</span>  
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">out</span><span class="p">]</span> <span class="n">ModuleID</span> <span class="o">*</span><span class="n">pModuleId</span><span class="p">,</span>  
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">out</span><span class="p">]</span> <span class="n">mdToken</span> <span class="o">*</span><span class="n">pToken</span><span class="p">,</span>  
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">in</span><span class="p">]</span>  <span class="n">ULONG32</span> <span class="n">cTypeArgs</span><span class="p">,</span>  
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">out</span><span class="p">]</span> <span class="n">ULONG32</span> <span class="o">*</span><span class="n">pcTypeArgs</span><span class="p">,</span>  
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">out</span><span class="p">]</span> <span class="n">ClassID</span> <span class="n">typeArgs</span><span class="p">[]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>You have the <strong>FunctionID</strong> but not the <strong>COR_PRF_FRAME_INFO</strong>… You need to call <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo3-getfunctionenter3info-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo3::GetFunctionEnter3Info</strong></a> to get it from the <strong>COR_PRF_ELT_INFO</strong> given by the enter stub. Here is the final code to get a <strong>ClassID</strong> for a generic type:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">classId</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// Call GetFunctionEnter3Info to get the COR_PRF_FRAME_INFO* needed by GetFunctionInfo2 
+</span></span></span><span class="line"><span class="cl">   <span class="c1">// as a second parameter and get the instanciated generic argument types. 
+</span></span></span><span class="line"><span class="cl">   <span class="c1">// Otherwise will get &lt;K, V&gt; instead of &lt;int, string&gt; for example
+</span></span></span><span class="line"><span class="cl">   <span class="n">COR_PRF_FRAME_INFO</span> <span class="n">frameInfo</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">ULONG</span> <span class="n">nbArgumentInfo</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="c1">// NOTE: it is needed to pass &amp;nbArgumentInfo or the method will return INVALIDARGUMENT error
+</span></span></span><span class="line"><span class="cl">   <span class="n">hr</span> <span class="o">=</span> <span class="n">pInfo</span><span class="o">-&gt;</span><span class="n">GetFunctionEnter3Info</span><span class="p">(</span><span class="n">functionId</span><span class="p">,</span> <span class="n">eltInfo</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">frameInfo</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">nbArgumentInfo</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// NOTE: hr will fail will insuffisant buffer size in case of generic but the frameInfo will be correct
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="n">hr</span> <span class="o">=</span> <span class="n">pInfo</span><span class="o">-&gt;</span><span class="n">GetFunctionInfo2</span><span class="p">(</span><span class="n">functionId</span><span class="p">,</span> <span class="n">frameInfo</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">classId</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">moduleId</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">mdtokenFunction</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// from here, we are sure to have a valid ClassID
+</span></span></span></code></pre></td></tr></table>
+</div>
+</div><p>Here is a summary of the relationships between the different IDs with the corresponding APIs to call:</p>
+<p><img loading="lazy" src="/posts/2021-09-06_dealing-with-modules-assemblie/1_U7o7D7K4u2OztCqK-xYrIQ.png"></p>
+<h2 id="from-a-classid-to-a-classname">From a ClassID to a class name<a hidden class="anchor" aria-hidden="true" href="#from-a-classid-to-a-classname">#</a></h2>
+<p>It is time to enter a complicated part of the story: how to get the “name” of the type that hides behind a <strong>ClassID</strong>. As you might guess, the first step is to figure out if it is a generic type and what are the corresponding type arguments. You have to call <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo2-getclassidinfo2-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo2::GetClassIDInfo2</strong></a> with the <strong>ClassID</strong> to get the metadata token of the type, the number of type arguments and the <strong>ClassID</strong> of these types if any. As usual with this kind of API, a first call is needed to get the number of type arguments so you can allocate the right sized array of <strong>ClassID</strong>. The second call will fill up the newly allocated array:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">mdTypeDef</span> <span class="n">mdType</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">ClassID</span> <span class="n">parentClassId</span><span class="p">;</span> <span class="c1">// not needed in our scenario 
+</span></span></span><span class="line"><span class="cl"><span class="n">ULONG32</span> <span class="n">numGenericTypeArgs</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">ClassID</span><span class="o">*</span> <span class="n">genericTypeArgs</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">pInfo</span><span class="o">-&gt;</span><span class="n">GetClassIDInfo2</span><span class="p">(</span><span class="n">classId</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">mdType</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">parentClassId</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">numGenericTypeArgs</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">numGenericTypeArgs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">genericTypeArgs</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ClassID</span><span class="p">[</span><span class="n">numGenericTypeArgs</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">   <span class="n">pInfo</span><span class="o">-&gt;</span><span class="n">GetClassIDInfo2</span><span class="p">(</span><span class="n">classId</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">mdType</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">parentClassId</span><span class="p">,</span> <span class="n">numGenericTypeArgs</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">numGenericTypeArgs</span><span class="p">,</span> <span class="n">genericTypeArgs</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Since you obtained a metadata token, you will need the <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/metadata/imetadataimport-interface?WT.mc_id=DT-MVP-5003325"><strong>IMetaDataImport</strong></a> of the module where the type is defined to get details such as… its name. The <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/metadata/imetadataimport2-interface?WT.mc_id=DT-MVP-5003325"><strong>IMetaDataImport2</strong></a> is required to enumerate the parameter types:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">IMetaDataImport2</span><span class="o">*</span> <span class="n">pMetaDataImport</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">pInfo</span><span class="o">-&gt;</span><span class="n">GetModuleMetaData</span><span class="p">(</span><span class="n">moduleId</span><span class="p">,</span> <span class="n">ofRead</span><span class="p">,</span> <span class="n">IID_IMetaDataImport2</span><span class="p">,</span> <span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">IUnknown</span><span class="o">**&gt;</span><span class="p">(</span><span class="o">&amp;</span><span class="n">pMetaDataImport</span><span class="p">));</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Getting the type “name” is done by a call to <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/metadata/imetadataimport-gettypedefprops-method?WT.mc_id=DT-MVP-5003325"><strong>IMetaDataImport::GetTypeDefProps</strong></a>, passing the metadata token corresponding to the <strong>ClassID</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">ULONG</span> <span class="n">length</span> <span class="o">=</span> <span class="n">bufferLen</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">DWORD</span> <span class="n">flags</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">mdTypeDef</span> <span class="n">mdBaseType</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">wostringstream</span> <span class="n">oss</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">pszName</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="sa">L</span><span class="sc">&#39;\0&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">pMetaDataImport</span><span class="o">-&gt;</span><span class="n">GetTypeDefProps</span><span class="p">(</span><span class="n">mdType</span><span class="p">,</span> <span class="n">pszName</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">length</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">flags</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">mdBaseType</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>But before jumping into the name, you need to take care of the case where you are dealing with a nested type (i.e. a type defined in another type). Checking the <strong>flags</strong> parameter is exactly what you need:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">IsTdNested</span><span class="p">(</span><span class="n">flags</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">mdToken</span> <span class="n">mdEnclosingClass</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">pMetaDataImport</span><span class="o">-&gt;</span><span class="n">GetNestedClassProps</span><span class="p">(</span><span class="n">mdType</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">mdEnclosingClass</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="c1">// create a new buffer to get the enclosing type name
+</span></span></span><span class="line"><span class="cl">   <span class="n">WCHAR</span><span class="o">*</span> <span class="n">pszEnclosingTypeName</span> <span class="o">=</span> <span class="k">new</span> <span class="n">WCHAR</span><span class="p">[</span><span class="n">bufferLen</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">   <span class="n">GetTypeName</span><span class="p">(</span><span class="n">pInfo</span><span class="p">,</span> <span class="n">pMetaDataImport</span><span class="p">,</span> <span class="n">mdEnclosingClass</span><span class="p">,</span> <span class="n">numGenericTypeArgs</span><span class="p">,</span> <span class="n">genericTypeArgs</span><span class="p">,</span> <span class="n">pszEnclosingTypeName</span><span class="p">,</span> <span class="n">bufferLen</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="n">oss</span> <span class="o">&lt;&lt;</span> <span class="n">pszEnclosingTypeName</span> <span class="o">&lt;&lt;</span> <span class="s">&#34;+&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="k">delete</span> <span class="n">pszEnclosingTypeName</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>A call to <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/metadata/imetadataimport-getnestedclassprops-method?WT.mc_id=DT-MVP-5003325"><strong>IMetaDataImport::GetNestedClassProps</strong></a> returns the metadata token of the enclosing type and you simply recursively call the <strong>GetTypeName</strong> method that we are implementing in case of multi-nested types.</p>
+<p>If this is not a generic type, we are done. However, as already mentioned in case of a generic type, it will end with the ` character followed by the number of type parameters. The following helper function swiftly gets rid of it:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">FixGenericSyntax</span><span class="p">(</span><span class="n">WCHAR</span><span class="o">*</span> <span class="n">name</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">ULONG</span> <span class="n">currentCharPos</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="k">while</span> <span class="p">(</span><span class="n">name</span><span class="p">[</span><span class="n">currentCharPos</span><span class="p">]</span> <span class="o">!=</span> <span class="sa">L</span><span class="sc">&#39;\0&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="k">if</span> <span class="p">(</span><span class="n">name</span><span class="p">[</span><span class="n">currentCharPos</span><span class="p">]</span> <span class="o">==</span> <span class="sa">L</span><span class="sc">&#39;`&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">         <span class="c1">// skip `xx 
+</span></span></span><span class="line"><span class="cl">         <span class="n">name</span><span class="p">[</span><span class="n">currentCharPos</span><span class="p">]</span> <span class="o">=</span> <span class="sa">L</span><span class="sc">&#39;\0&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">         <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="n">currentCharPos</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The next step is to rebuild the list of generic argument types using the array of <strong>ClassID</strong> return by <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo2-getclassidinfo2-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo2::GetClassIDInfo2</strong></a>. The most complicated part of the loop is avoid to add a “,” after the last argument type:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">numGenericTypeArgs</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// replace &#34;`xx&#34; by &#34;&lt;&#34;
+</span></span></span><span class="line"><span class="cl">   <span class="n">FixGenericSyntax</span><span class="p">(</span><span class="n">pszName</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="n">oss</span> <span class="o">&lt;&lt;</span> <span class="n">pszName</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">oss</span> <span class="o">&lt;&lt;</span> <span class="sa">L</span><span class="s">&#34;&lt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">for</span> <span class="p">(</span><span class="n">size_t</span> <span class="n">currentGenericArg</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">currentGenericArg</span> <span class="o">&lt;</span> <span class="n">numGenericTypeArgs</span><span class="p">;</span> <span class="n">currentGenericArg</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="n">ClassID</span> <span class="n">argClassId</span> <span class="o">=</span> <span class="n">genericTypeArgs</span><span class="p">[</span><span class="n">currentGenericArg</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">      <span class="n">ModuleID</span> <span class="n">argModuleId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pInfo</span><span class="o">-&gt;</span><span class="n">GetClassIDInfo2</span><span class="p">(</span><span class="n">argClassId</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">argModuleId</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="n">WCHAR</span> <span class="n">argTypeName</span><span class="p">[</span><span class="mi">260</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">      <span class="n">GetTypeName</span><span class="p">(</span><span class="n">pInfo</span><span class="p">,</span> <span class="n">argClassId</span><span class="p">,</span> <span class="n">argModuleId</span><span class="p">,</span> <span class="n">argTypeName</span><span class="p">,</span> <span class="n">ARRAY_LEN</span><span class="p">(</span><span class="n">argTypeName</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">      <span class="n">oss</span> <span class="o">&lt;&lt;</span> <span class="n">argTypeName</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">      <span class="k">if</span> <span class="p">(</span><span class="n">currentGenericArg</span> <span class="o">&lt;</span> <span class="n">numGenericTypeArgs</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">         <span class="n">oss</span> <span class="o">&lt;&lt;</span> <span class="sa">L</span><span class="s">&#34;, &#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="n">oss</span> <span class="o">&lt;&lt;</span> <span class="sa">L</span><span class="s">&#34;&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>You call <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo2-getclassidinfo2-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo2::GetClassIDInfo2</strong></a> on each parameter type <strong>ClassID</strong> to obtain the <strong>ModuleID</strong> where the type is defined and call our <strong>GetTypeName</strong> helper method.</p>
+<p>The next episode will analyze methods signature.</p>
+<h2 id="references">References<a hidden class="anchor" aria-hidden="true" href="#references">#</a></h2>
+<ul>
+<li><a href="https://docs.microsoft.com/en-us/dotnet/standard/generics/?WT.mc_id=DT-MVP-5003325/">Basics about generic types</a></li>
+<li>Episode 1: <a href="/posts/2021-08-07_start-journey-into-the/">Start a journey into the .NET Profiling APIs</a></li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2021-10-12_decyphering-method-signature-w/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Decyphering methods signature with .NET profiling APIs</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2021-08-07_start-journey-into-the/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Start a journey into the .NET Profiling APIs</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Understanding “reversed” callstacks in Visual Studio and Perfview with async/await code | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, performance, diagnostics, memory, Cursor, HTTP">
+<meta name="description" content="This post explains why profilers like Visual Studio could display “reversed” callstacks when dealing with async/await code.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2021-01-19_understanding-reversed-callsta/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2021-01-19_understanding-reversed-callsta/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Understanding “reversed” callstacks in Visual Studio and Perfview with async/await code
+    </h1>
+    <div class="post-description">
+      This post explains why profilers like Visual Studio could display “reversed” callstacks when dealing with async/await code.
+    </div>
+    <div class="post-meta"><span title='2021-01-19 17:16:08.978 +0000 UTC'>January 19, 2021</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2021-01-19_understanding-reversed-callsta/1_Zf0qb_2Y8oKs9KO1Fli1rg.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#lets-see-the-result-of-profiling-in-visualstudio" aria-label="Let’s see the result of profiling in Visual Studio">Let’s see the result of profiling in Visual Studio</a></li>
+                <li>
+                    <a href="#understanding-asyncawait-implementation" aria-label="Understanding async/await implementation">Understanding async/await implementation</a><ul>
+                        
+                <li>
+                    <a href="#stay-tuned" aria-label="Stay tuned!">Stay tuned!</a>
+                </li>
+            </ul>
+            </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>With my colleague <a href="https://twitter.com/ezsilmar">Eugene</a>, we spent a long time analyzing performances of one of Criteo main applications with Perfview. The application is processing thousand of requests in an asynchronous pipeline full of <strong>async</strong>/**await **calls. During our research, we ended up with weird callstacks that looked kind of “reversed”. The goal of this post is to describe why this could happen (even in Visual Studio).</p>
+<h2 id="lets-see-the-result-of-profiling-in-visualstudio">Let’s see the result of profiling in Visual Studio<a hidden class="anchor" aria-hidden="true" href="#lets-see-the-result-of-profiling-in-visualstudio">#</a></h2>
+<p>I wrote a simple .NET Core application that simulates a few <strong>async</strong>/**await **calls:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">static</span> <span class="kd">async</span> <span class="n">Task</span> <span class="n">Main</span><span class="p">(</span><span class="kt">string</span><span class="p">[]</span> <span class="n">args</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;pid = {Process.GetCurrentProcess().Id}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;press ENTER to start...&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">ReadLine</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">await</span> <span class="n">ComputeAsync</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;press ENTER to exit...&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">ReadLine</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="kd">async</span> <span class="n">Task</span> <span class="n">ComputeAsync</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">await</span> <span class="n">Task</span><span class="p">.</span><span class="n">WhenAll</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Compute1</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="p">...</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Compute1</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="p">);</span> 
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><code>ComputeAsync</code> is starting a bunch of tasks that will await other **async **methods:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="kd">async</span> <span class="n">Task</span> <span class="n">Compute1</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ConsumeCPU</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">await</span> <span class="n">Compute2</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ConsumeCPUAfterCompute2</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="kd">async</span> <span class="n">Task</span> <span class="n">Compute2</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ConsumeCPU</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">await</span> <span class="n">Compute3</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ConsumeCPUAfterCompute3</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="kd">async</span> <span class="n">Task</span> <span class="n">Compute3</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">await</span> <span class="n">Task</span><span class="p">.</span><span class="n">Delay</span><span class="p">(</span><span class="m">1000</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ConsumeCPUinCompute3</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;DONE&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Unlike the <code>Compute1</code> and <code>Compute2</code> methods, the last <code>Compute3</code> is waiting 1 second before consuming some CPU with square root computation in <code>CompusumeCPUXXX</code> helpers:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="na">[MethodImpl(MethodImplOptions.NoInlining)]</span>
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="k">void</span> <span class="n">ConsumeCPUinCompute3</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ConsumeCPU</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="na">
+</span></span></span><span class="line"><span class="cl"><span class="na">[MethodImpl(MethodImplOptions.NoInlining)]</span>
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="k">void</span> <span class="n">ConsumeCPUAfterCompute3</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ConsumeCPU</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="na">
+</span></span></span><span class="line"><span class="cl"><span class="na">[MethodImpl(MethodImplOptions.NoInlining)]</span>
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="k">void</span> <span class="n">ConsumeCPUAfterCompute2</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ConsumeCPU</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="k">void</span> <span class="n">ConsumeCPU</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">i</span> <span class="p">&lt;</span> <span class="m">1000</span><span class="p">;</span> <span class="n">i</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">j</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">j</span> <span class="p">&lt;</span> <span class="m">1000000</span><span class="p">;</span> <span class="n">j</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">Math</span><span class="p">.</span><span class="n">Sqrt</span><span class="p">((</span><span class="kt">double</span><span class="p">)</span><span class="n">j</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>From Visual Studio, profile the CPU usage of this test program via <strong>Debug | Performance Profiler…</strong></p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_19VeO5ExRqIdORWkPalEsg.png"></p>
+<p>In the summary result panel, click the <strong>Open Details…</strong> link</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_mgUex0R8dO0KebQoOY3Dgw.png"></p>
+<p>And pick the <strong>Call Tree</strong> view</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_pHREftYmqPo6_o16Q9UIDg.png"></p>
+<p>You should see two paths of execution:</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_7bCbVvcXMaqyVnJGod52EA.png"></p>
+<p>If you open the last one, you should see the expected chain of calls:</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_UaWjYDCs6nJMrwpCN-TPmg.png"></p>
+<p>… if the methods were synchronous; which is not the case. So Visual Studio did a great job in dealing with the implementation details of <strong>async</strong>/**await **to present a nice call stack.</p>
+<p>However, if you open the first node, you get something more disturbing:</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_32whbyr8dVBDlYx8Y37t7g.png"></p>
+<p>… if you don’t know how <strong>async</strong>/**await **is implemented. My <code>Compute3</code> code is definitively not calling <code>Compute2</code> which is not calling <code>Compute1</code>! This is where Visual Studio smart frame/callstack reconstruction brings more confusion than anything else. So what’s going on?</p>
+<h2 id="understanding-asyncawait-implementation">Understanding async/await implementation<a hidden class="anchor" aria-hidden="true" href="#understanding-asyncawait-implementation">#</a></h2>
+<p>Unlike Visual Studio that is hiding real calls, you should be able to see what methods are really called when analyzing a memory dump with <strong>dotnet-dump</strong> and the <strong>pstacks</strong> command:</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_jl7s91j1oVmCfOk-1FLx9Q.png"></p>
+<p>If you follow the arrows from the bottom to the top, you should see the following synchronous (because as frame in thread callstacks) calls:</p>
+<ul>
+<li>a timer callback is calling <code>d__4.MoveNext()</code> : this corresponds to the end of the <code>Task.Delay</code> in<code>Compute3</code> method.</li>
+<li><code>d__3.MoveNext()</code> gets called to continue the code after <code>await Compute3</code></li>
+<li><code>d__.MoveNext()</code> gets called to continue the code after <code>await Compute2</code></li>
+<li><code>ConsumeCPUAfterCompute2()</code> gets called as expected</li>
+<li><code>ComputeCPU()</code>** **or <code>ConsumeCPUInCompute3()</code> get called as expected</li>
+</ul>
+<p>All the fancy methods names are due to “state machine” types that is generated by the C# compiler when you (1) define **async **methods that (2) await other **async **methods (or any “awaitable” object). Their role is to manage a “state machine” to execute code synchronously up to an <strong>await</strong> call, and again up to the next <strong>await</strong> call, and again and again until the method returns.</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_z5p1oSFQhsBrFPMsqBYSuQ.png"></p>
+<p>All these <code>d__*</code> types contains fields corresponding to each <strong>async</strong> method local variables and parameters if any. For example, here is what is generated for the <code>ComputeAsync</code>** **and <code>Compute1/2/3</code> <strong>async</strong> methods without any local or parameter:</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_YjVkaPmjcdGN1SHKjPSX5w.png"></p>
+<p>The integer <code>&lt;&gt;1__state</code> field keeps track of the “execution state” of the machine. For example, after the state machine is created in <code>Compute1</code>, this field is set to <strong>-1</strong>:</p>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_WaPLv6vAl2h2vyQMZ4GdIw.png"></p>
+<p>I don’t want to dig into the builder details but just let’s just say that the <code>MoveNext</code> method of the state machine <code>d__2</code> gets executed (by the same thread).</p>
+<p>Before looking at the <code>MoveNext</code> implementation corresponding to the <code>Compute1</code> method (without exception handling), keep in mind that it has to :</p>
+<ul>
+<li>run all code up to an **await **call,</li>
+<li>change the “execution state” (more on this later)</li>
+<li>do some magic to execute that code in another thread (if needed — more on this later)</li>
+<li>come back to continue the execution of the code after the <strong>await</strong> call</li>
+<li>and do that up to the next <strong>await</strong> call again and again</li>
+</ul>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_Ip734O0vxHnhdDv3siEPWA.png"></p>
+<p>Since <code>&lt;&gt;1__state</code> is -1, the first “synchronous” part of the code is executed (i.e. calling <code>ComsumeCPU</code> method).</p>
+<p>The <code>Compute2</code> method is then called to get the corresponding awaitable object (here a <code>Task</code>). If the task runs immediately (i.e. no <strong>await</strong> call such as a simple <code>Task.FromResult()</code> in the <strong>async</strong> method), <code>IsCompleted()</code> will return <strong>true</strong> and the code after the <strong>await</strong> call will be run by the same thread. Yes it means that <strong>async</strong>/<strong>await</strong> calls could be run synchronously by the same thread: why creating a thread when it is not needed?</p>
+<p>If the Task is passed to the ThreadPool to be executed by a worker thread, the <code>&lt;&gt;1__state</code> value is set to <strong>0</strong> (so the next time <code>MoveNext</code> is called, the next “synchronous” part (i.e. after the <strong>await</strong> call) will be executed). The code now calls <code>awaitUnsafeOnCompleted</code> to do its magic: adding a continuation to the <code>Compute2</code> task (the first <strong>awaiter</strong> parameter) so that <code>MoveNext</code> will be called on that same state machine (the second <strong>this</strong> parameter) when the task ends. The current thread then quietly returns.</p>
+<p>So when the <code>Compute2</code> task ends, its continuation runs to call <code>MoveNext</code> this time with <code>&lt;&gt;1__state</code> as <strong>0</strong> so the last two lines are executed: <code>awaiter.GetResult()</code> returns immediately because the <code>Task</code> returned by <code>Compute2</code> already ended and the last <code>CinsumeCPUAfterCompute2</code> method is now called.</p>
+<p>Here is a summary of what is happening:</p>
+<ul>
+<li>Each time you see an <strong>async</strong> method, the C# compiler is generating a dedicated state machine type with a <code>MoveNext</code> method that is responsible for executing your code synchronously between <strong>await</strong> calls</li>
+<li>each time you see an <strong>await</strong> call, it means that a continuation will be added to the <code>Task</code> wrapping the <strong>async</strong> method to be executed. That continuation code will call the <code>MoveNext</code> method of the state machine of the calling method to execute the next piece of code up to its next <strong>await</strong> call.</li>
+</ul>
+<p><img loading="lazy" src="/posts/2021-01-19_understanding-reversed-callsta/1_Zf0qb_2Y8oKs9KO1Fli1rg.png"></p>
+<p>This is why Visual Studio, trying to smartly match each async method state machine <code>MoveNext</code> frame to the method itself, shows reversed callstacks: the shown frames are the ones corresponding to the continuations after the <strong>await</strong> calls (in green in the previous figure).</p>
+<p>Note that I described in more details how <strong>async</strong>/<strong>await</strong> is working and the action of <code>AwaitUnsageOnCompleted</code> during a <a href="https://youtu.be/8Ans2u4Bsi8?t=995">DotNext conference session</a> with <a href="https://twitter.com/KooKiz">Kevin</a> so feel free to watch the <a href="https://youtu.be/8Ans2u4Bsi8?t=995">recording at that particular time</a> if you want to go deeper.</p>
+<p>The next post will describe what to do in Perfview to get more readable callstacks.</p>
+<h3 id="stay-tuned">Stay tuned!<a hidden class="anchor" aria-hidden="true" href="#stay-tuned">#</a></h3>
+<hr>
+<p><strong>Check out our latest posts on Medium:</strong></p>
+<p><a href="https://medium.com/criteo-engineering/top-applications-of-graph-neural-networks-2021-c06ec82bfc18"><strong>Top Applications of Graph Neural Networks 2021</strong>
+*GNNs have come a long way in academia. But do we have good applications of them in industry?*medium.com</a><a href="https://medium.com/criteo-engineering/top-applications-of-graph-neural-networks-2021-c06ec82bfc18"></a><a href="/posts/2020-12-08_build-your-own-net/"><strong>Build your own .NET CPU profiler in C#</strong>
+*After describing memory allocation profiling it is now time to dig into the CPU sample profiling in C#!*medium.com</a></p>
+<hr>
+<p><strong>Join the crowd!</strong></p>
+<p><a href="http://careers.criteo.com"><strong>Careers at Criteo | Criteo jobs</strong>
+*Find opportunities everywhere. ​Choose your next challenge. *careers.criteo.com</a><a href="http://careers.criteo.com"></a></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2021-03-02_how-to-ease-async/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>How to ease async callstacks analysis in Perfview</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2020-12-08_build-your-own-net/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Build your own .NET CPU profiler in C#</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

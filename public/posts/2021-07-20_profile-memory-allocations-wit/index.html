@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Profile memory allocations with Perfview | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content=".NET, performance, diagnostics, memory">
+<meta name="description" content="How to connect AllocationTick events to the corresponding callstacks thanks to the Microsoft Perfview free tool.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2021-07-20_profile-memory-allocations-wit/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2021-07-20_profile-memory-allocations-wit/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Profile memory allocations with Perfview
+    </h1>
+    <div class="post-description">
+      How to connect AllocationTick events to the corresponding callstacks thanks to the Microsoft Perfview free tool.
+    </div>
+    <div class="post-meta"><span title='2021-07-20 07:14:59.045 +0000 UTC'>July 20, 2021</span>&nbsp;·&nbsp;<span>3 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2021-07-20_profile-memory-allocations-wit/1_WDSmxes74rkDmJ-7qErfsg.jpeg" alt="">
+        
+</figure>
+
+  <div class="post-content"><hr>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_WDSmxes74rkDmJ-7qErfsg.jpeg"></p>
+<p>I have already explained how to <a href="/posts/2020-04-18_build-your-own-net/">write your own allocation monitoring tool</a>. Each time 100 cumulated KB are allocated, the CLR emits an <a href="https://docs.microsoft.com/en-us/dotnet/framework/performance/garbage-collection-etw-events#gcallocationtick_v2-event?WT.mc_id=DT-MVP-5003325">AllocationTick event</a> with the name of the last allocated type before the 100 KB threshold and if it is in the LOH or not. This post shows you how to get these events with the corresponding callstacks thanks to the Microsoft <a href="https://github.com/microsoft/perfview/releases/">Perfview free tool</a>.</p>
+<p>On Linux, things are a little bit more complicated because the Kernel provider does not exist to emit callstacks events. Microsoft provides the <a href="https://github.com/microsoft/perfview/tree/main/src/perfcollect">perfcollect script</a> to get a zip file containing both the CLR events (collected by LTTng) and the callstacks (collected via perf). If you want, like <a href="https://docs.microsoft.com/en-us/dotnet/core/diagnostics/dotnet-trace?WT.mc_id=DT-MVP-5003325">dotnet-trace</a>, to rely on EventPipe instead of LTTng, you could use <a href="https://github.com/criteo-forks/perfview">Criteo fork of the perfcollect script</a> and the corresponding updated version of Perfview to open the generated .trace.zip file. Note that our <a href="https://github.com/microsoft/perfview/pull/1291">Pull Request</a> to the Microsoft Perfview repository is still pending…</p>
+<p>If you are on Windows, you could use Perfview (menu <strong>Collect</strong> | <strong>Collect</strong> or <strong>Alt+C</strong> shortcut)</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_DIwnG2xjbodRUlAeI4Plew.png"></p>
+<p>and click the <strong>Start Collection</strong> button. When the workflow you want to analyze is finished, click the same button (with a <strong>Stop Collection</strong> text this time) and the corresponding file should open up as a tree:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_kyVKLpKup_IT5s4uIDzDNA.png"></p>
+<p>Note that with a Linux collection, the nodes might be different:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_8W8hiRCtebpuUHY8DnXfDA.png"></p>
+<p>In both cases, you are interested in the events visible when you double-click the <strong>Events</strong> node. You could use the <strong>Filter</strong> textbox to easily find the AllocationTick line in the left panel. Then, right-click and select <strong>Open Any Stacks</strong>:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_dt9nQ5JKRcy_cBmWzXdXUw.png"></p>
+<p>This action opens up a new windows that is different between a Windows and a Linux collection:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_PHbvwq4obudoKwcgb_nM9g.png"></p>
+<p>The reason is simple: on Windows, events from ALL processes have been collected while only process is targeted on Linux. This is why you have to double-click the process you want on Windows while it is already selected for Linux. You could also keep only events from a process by entering its ID in the <strong>IncPats</strong> combo-box:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_9yRcGmwSS0jdRhfjlRuljQ.png"></p>
+<p>Instead of staying on the <strong>CallTree</strong> tab, I recommend to select the <strong>By Name</strong> tab instead and double-click the AllocationTick line:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_jzuA84byszCMZhvUlfUcdw.png"></p>
+<p>This action moves to the <strong>Caller</strong> tab with AllocationTick selected:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_feYGSeRsDVBPA_QZfOaTTw.png"></p>
+<p>Each line under the AllocationTick node starts with <strong>EventData TypeName</strong> followed by the allocation type name. <strong>EventData</strong> is the name of the event payload used by Perfview and <strong>TypeName</strong> is the property name in the payload.</p>
+<p>The <strong>Inc</strong> columns gives an hint about the split of the different allocations. Remember that the AllocationTick events are providing a sampling of the allocations, not an exact picture but it should be enough. In the previous screenshot, the majority of allocations are byte arrays Byte[].</p>
+<p>Click the corresponding checkbox to open the Byte[] node:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_OVZZw9uGcq3kOJWcqgTTDA.png"></p>
+<p>As you can guess, each line represent a different value of the <strong>Size</strong> property in the <strong>EventData</strong> payload. You don’t really care about the different values so type <strong>EventData Size</strong> in the FoldPats combo-box to make them disappear:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_-CH9Ri3SMKpZMzJScf4X4g.png"></p>
+<p>Most of the allocations are not in the LOH (i.e. less that 85.000 bytes with the default LOH threshold) and when you click the <strong>Small</strong> checkbox, the different callstacks leading to these allocations appear in the tree such as the <strong>Run</strong> method of the <strong>RandomAllocationAction</strong> class in the following screenshot:</p>
+<p><img loading="lazy" src="/posts/2021-07-20_profile-memory-allocations-wit/1_WKCF7ncuLPe9JuRB3fyksA.png"></p>
+<p>Don’t be scared by the raw state of the stack frame: read <a href="/posts/2021-03-02_how-to-ease-async/">this previous post</a> to see how to better understand async/await callstacks and make them more readable.</p>
+<p>Happy memory profiling!</p>
+<hr>
+<p><strong>Interested in working on this topic? Check out our open positions:</strong></p>
+<p><a href="https://careers.criteo.com"><strong>Careers at Criteo | Criteo jobs</strong>
+<em>Find opportunities everywhere. ​</em>careers.criteo.com</a><a href="https://careers.criteo.com"></a><a href="https://careers.criteo.com/job/38e2cc1c-718c-4d2d-ae62-4f5206192de7/Senior-Site-Reliability-Engineer-PRE-Performance-remote-flexibility-with-base-in-France"><strong>Senior Site Reliability Engineer - PRE - Performance (remote flexibility with base in France) job…</strong>
+careers.criteo.com</a><a href="https://careers.criteo.com/job/38e2cc1c-718c-4d2d-ae62-4f5206192de7/Senior-Site-Reliability-Engineer-PRE-Performance-remote-flexibility-with-base-in-France"></a></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2021-08-07_start-journey-into-the/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Start a journey into the .NET Profiling APIs</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2021-07-01_memory-anti-patterns-in/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Memory Anti-Patterns in C#</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

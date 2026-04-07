@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Measuring the impact of locks and waits on latency in your .NET apps | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, debugging, performance, diagnostics, memory, dotnet-tools, PDB, Cursor, HTTP">
+<meta name="description" content="Monitor mutex, semaphore and event wait duration">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Measuring the impact of locks and waits on latency in your .NET apps
+    </h1>
+    <div class="post-description">
+      Monitor mutex, semaphore and event wait duration
+    </div>
+    <div class="post-meta"><span title='2025-01-13 15:31:03.206 +0000 UTC'>January 13, 2025</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/1_OTO7qWO5aYvNXprhaPvRoA.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#new-waithandlewait-events" aria-label="New WaitHandleWait events">New WaitHandleWait events</a></li>
+                <li>
+                    <a href="#listening-to-the-new-waitevents" aria-label="Listening to the new Wait events">Listening to the new Wait events</a></li>
+                <li>
+                    <a href="#call-stacks-with-eventpipe" aria-label="Call stacks with EventPipe">Call stacks with EventPipe</a></li>
+                <li>
+                    <a href="#symbolize-the-call-stack-addresses" aria-label="Symbolize the call stack addresses">Symbolize the call stack addresses</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>In an <a href="https://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/">old post</a>, I detailed how to use <strong>ContentionStart</strong> and <strong>ContentionStop</strong> events to measure the lock contentions duration for a .NET application. In a <a href="https://github.com/DataDog/dd-trace-dotnet/issues/5814">.NET 9 pull request</a>, a former Criteo’s colleague <a href="https://www.linkedin.com/in/gregoire-verdier">Grégoire Verdier</a> has added new events to be notified when wait time similar to lock contention is happening for Mutex, Semaphore, Manual/AutoResetEvent. Read <a href="https://techblog.criteo.com/a-perfview-alternative-in-webassembly-f6833820b699">his post</a> for more details about what he was trying to investigate.</p>
+<p>With asynchronous and multi-threaded algorithms, it is essential to detect unexpected wait/locks in our applications. This post shows you how to leverage these events to measure the duration of these waits and get the call stack when the wait started:</p>
+<p><img loading="lazy" src="/posts/2025-01-13_measuring-the-impact-of/1_OTO7qWO5aYvNXprhaPvRoA.png"></p>
+<h2 id="new-waithandlewait-events">New WaitHandleWait events<a hidden class="anchor" aria-hidden="true" href="#new-waithandlewait-events">#</a></h2>
+<p>These new events are emitted by the <strong>Microsoft-Windows-DotNETRuntime</strong> CLR provider when you enable the <strong>WaitHandle</strong> (= 0x40000000000) keyword with <strong>Verbose</strong> verbosity. Each time <strong>WaitOne</strong> is called on a waitable object and this object is already owned, a <strong>WaitHandleWaitStart</strong> event is emitted. When the object is released, a <strong>WaitHandleWaitStop</strong> event is emitted.</p>
+<p>For example, the following code:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">static</span> <span class="n">Mutex</span> <span class="n">mutex</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Mutex</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">static</span> <span class="k">void</span> <span class="n">Main</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">owningThread</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Thread</span><span class="p">(</span><span class="n">OwningThread</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">owningThread</span><span class="p">.</span><span class="n">Start</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">mutexThread</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Thread</span><span class="p">(</span><span class="n">MutexThread</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mutexThread</span><span class="p">.</span><span class="n">Start</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">owningThread</span><span class="p">.</span><span class="n">Join</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mutexThread</span><span class="p">.</span><span class="n">Join</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">static</span> <span class="k">void</span> <span class="n">OwningThread</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;    [{GetCurrentThreadId(), 8}] Start to hold resources&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;___________________________________________&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mutex</span><span class="p">.</span><span class="n">WaitOne</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">Thread</span><span class="p">.</span><span class="n">Sleep</span><span class="p">(</span><span class="m">3000</span><span class="p">);</span>  <span class="c1">// the wait should last ~3 seconds</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;    Release resources&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mutex</span><span class="p">.</span><span class="n">ReleaseMutex</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">static</span> <span class="k">void</span> <span class="n">MutexThread</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;    [{GetCurrentThreadId(), 8}] waiting for Mutex...&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mutex</span><span class="p">.</span><span class="n">WaitOne</span><span class="p">();</span>  <span class="c1">// events are emitted in the implementation when a contention happens</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mutex</span><span class="p">.</span><span class="n">ReleaseMutex</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;    &lt;-- Mutex&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>generates a Start and Stop events pair:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="m">125980</span> <span class="p">|</span> <span class="m">00000000</span><span class="p">-</span><span class="m">0000</span><span class="p">-</span><span class="m">0000</span><span class="p">-</span><span class="m">0000</span><span class="p">-</span><span class="m">000000000000</span> <span class="p">&gt;</span> <span class="k">event</span> <span class="m">301</span> <span class="n">__</span> <span class="p">[</span> <span class="m">1</span><span class="p">|</span> <span class="n">Start</span><span class="p">]</span> <span class="n">WaitHandleWait</span><span class="p">/</span><span class="n">Start</span>
+</span></span><span class="line"><span class="cl"><span class="m">125980</span> <span class="p">|</span> <span class="m">00000000</span><span class="p">-</span><span class="m">0000</span><span class="p">-</span><span class="m">0000</span><span class="p">-</span><span class="m">0000</span><span class="p">-</span><span class="m">000000000000</span> <span class="p">&gt;</span> <span class="k">event</span> <span class="m">302</span> <span class="n">__</span> <span class="p">[</span> <span class="m">2</span><span class="p">|</span>  <span class="n">Stop</span><span class="p">]</span> <span class="n">WaitHandleWait</span><span class="p">/</span><span class="n">Stop</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>There is no associated activity ID so you rely on the fact that the same waiter thread (125980 in the previous example) is emitting for both events.</p>
+<h2 id="listening-to-the-new-waitevents">Listening to the new Wait events<a hidden class="anchor" aria-hidden="true" href="#listening-to-the-new-waitevents">#</a></h2>
+<p><a href="/posts/2024-11-13_implementing-dotnet-http-to/">As usual</a>, you should rely on the <a href="https://www.nuget.org/packages/Microsoft.Diagnostics.Tracing.TraceEvent/">TraceEvent nuget</a> to start an EventPipe session with an already running .NET application. The last version already contains the definition of the keyword:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">keywords</span> <span class="p">|=</span> <span class="n">ClrTraceEventParser</span><span class="p">.</span><span class="n">Keywords</span><span class="p">.</span><span class="n">WaitHandle</span><span class="p">;</span> <span class="c1">// .NET 9 WaitHandle kind of contention</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>and the C# events for Start and Stop:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">source</span><span class="p">.</span><span class="n">Clr</span><span class="p">.</span><span class="n">WaitHandleWaitStart</span> <span class="p">+=</span> <span class="n">OnWaitHandleWaitStart</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">source</span><span class="p">.</span><span class="n">Clr</span><span class="p">.</span><span class="n">WaitHandleWaitStop</span> <span class="p">+=</span> <span class="n">OnWaitHandleWaitStop</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The handler’s implementation is straightforward. The start of the wait is recorded for the current thread:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">OnWaitHandleWaitStart</span><span class="p">(</span><span class="n">WaitHandleWaitStartTraceData</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// get the contention info for the current thread</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ContentionInfo</span> <span class="n">info</span> <span class="p">=</span> <span class="n">_contentionStore</span><span class="p">.</span><span class="n">GetContentionInfo</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">ProcessID</span><span class="p">,</span> <span class="n">data</span><span class="p">.</span><span class="n">ThreadID</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">info</span> <span class="p">==</span> <span class="kc">null</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// keep track of the wait start</span>
+</span></span><span class="line"><span class="cl">    <span class="n">info</span><span class="p">.</span><span class="n">ContentionStartRelativeMSec</span> <span class="p">=</span> <span class="n">data</span><span class="p">.</span><span class="n">TimeStampRelativeMSec</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>When the wait ends, the duration is computed based on the recorded wait start because it is not provided in the payload <a href="https://github.com/dotnet/runtime/blob/main/src/coreclr/vm/ClrEtwAll.man#L1788">like for ContentionStop</a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">OnWaitHandleWaitStop</span><span class="p">(</span><span class="n">WaitHandleWaitStopTraceData</span> <span class="n">data</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ContentionInfo</span> <span class="n">info</span> <span class="p">=</span> <span class="n">_contentionStore</span><span class="p">.</span><span class="n">GetContentionInfo</span><span class="p">(</span><span class="n">data</span><span class="p">.</span><span class="n">ProcessID</span><span class="p">,</span> <span class="n">data</span><span class="p">.</span><span class="n">ThreadID</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">info</span> <span class="p">==</span> <span class="kc">null</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// unlucky case when we start to listen just after the WaitHandleStart event</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">info</span><span class="p">.</span><span class="n">ContentionStartRelativeMSec</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// Too bad the duration is not provided in the payload like in ContentionStop...</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">contentionDurationMSec</span> <span class="p">=</span> <span class="n">data</span><span class="p">.</span><span class="n">TimeStampRelativeMSec</span> <span class="p">-</span> <span class="n">info</span><span class="p">.</span><span class="n">ContentionStartRelativeMSec</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">info</span><span class="p">.</span><span class="n">ContentionStartRelativeMSec</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">duration</span> <span class="p">=</span> <span class="n">TimeSpan</span><span class="p">.</span><span class="n">FromMilliseconds</span><span class="p">(</span><span class="n">contentionDurationMSec</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;{e.ThreadId,7} | {e.Duration.TotalMilliseconds} ms&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>This is nice but it would be more useful if we could get the call stack of long waits.</p>
+<h2 id="call-stacks-with-eventpipe">Call stacks with EventPipe<a hidden class="anchor" aria-hidden="true" href="#call-stacks-with-eventpipe">#</a></h2>
+<p>In a <a href="https://techblog.criteo.com/build-your-own-net-memory-profiler-in-c-call-stacks-2-2-1-f67b440a8cc">previous post</a>, I explained that it is possible to get the call stack when an event is emitted thanks to the <a href="https://learn.microsoft.com/en-us/dotnet/framework/performance/stack-etw-event?WT.mc_id=DT-MVP-5003325"><strong>ClrStackWalk</strong> event</a> that follows the event you are interested in. Unfortunately, this is not more the case for .NET 5+ that is using EventPipe instead of ETW.</p>
+<p>As <a href="https://x.com/ocoanet">Olivier Coanet</a> presents in his <a href="https://medium.com/@ocoanet/tracing-allocations-with-eventpipe-part-2-reading-call-stacks-without-tracelog-4b0bfe4592aa">post</a>, you can get the call stack as an array of addresses from the hidden event record that is mapped by the <strong>TraceEvent</strong> parameter passed to each event handlers. This <a href="https://learn.microsoft.com/en-us/windows/win32/api/evntcons/ns-evntcons-event_record?WT.mc_id=DT-MVP-5003325"><strong>EVENT_RECORD</strong></a> structure contains a <strong>ExtendedData</strong> field that is an array of <a href="https://learn.microsoft.com/en-us/windows/win32/api/evntcons/ns-evntcons-event_header_extended_data_item?WT.mc_id=DT-MVP-5003325"><strong>EVENT_HEADER_EXTENDED_DATA_ITEM</strong></a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">struct</span> <span class="nc">EVENT_HEADER_EXTENDED_DATA_ITEM</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">ushort</span> <span class="n">Reserved1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">ushort</span> <span class="n">ExtType</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">ushort</span> <span class="n">Reserved2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">ushort</span> <span class="n">DataSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">ulong</span> <span class="n">DataPtr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>If the <strong>ExtType</strong> value is <strong>EVENT_HEADER_EXT_TYPE_STACK_TRACE64</strong> (=6) then <strong>DataPtr</strong> points to a <a href="https://learn.microsoft.com/en-us/windows/win32/api/evntcons/ns-evntcons-event_extended_item_stack_trace64?%3FWT.mc_id=DT-MVP-5003325"><strong>EVENT_EXTENDED_ITEM_STACK_TRACE64</strong></a> structure:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">struct</span> <span class="nc">EVENT_EXTENDED_ITEM_STACK_TRACE64</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">ulong</span> <span class="n">MatchId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kd">unsafe</span> <span class="k">fixed</span> <span class="kt">ulong</span> <span class="n">Address</span><span class="p">[</span><span class="m">1</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>that contains an array of 64-bit addresses. The size of this array is given by <strong>DataSize — sizeof(ulong)</strong>.</p>
+<p>For 32-bit applications, you will get <strong>EVENT_HEADER_EXT_TYPE_STACK_TRACE32</strong> (=5) as <strong>ExtType</strong> value and DataPtr will point to <a href="https://learn.microsoft.com/en-us/windows/win32/api/evntcons/ns-evntcons-event_extended_item_stack_trace32?WT.mc_id=DT-MVP-5003325"><strong>EVENT_EXTENDED_ITEM_STACK_TRACE32</strong></a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">struct</span> <span class="nc">EVENT_EXTENDED_ITEM_STACK_TRACE32</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">ulong</span> <span class="n">MatchId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kd">unsafe</span> <span class="k">fixed</span> <span class="kt">uint</span> <span class="n">Address</span><span class="p">[</span><span class="m">1</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>that stores an array of 32-bit addresses.</p>
+<p>Knowing that makes writing the code to get the call stacks as an array of 64-bit addresses (same with 32-bit applications for simplicity sake) pretty straightforward:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="kd">static</span> <span class="n">EventPipeUnresolvedStack</span> <span class="n">ReadStackUsingUnsafeAccessor</span><span class="p">(</span><span class="n">TraceEvent</span> <span class="n">traceEvent</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">GetFromEventRecord</span><span class="p">(</span><span class="n">traceEvent</span><span class="p">.</span><span class="n">eventRecord</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="n">EventPipeUnresolvedStack</span> <span class="n">GetFromEventRecord</span><span class="p">(</span><span class="n">TraceEventNativeMethods</span><span class="p">.</span><span class="n">EVENT_RECORD</span><span class="p">*</span> <span class="n">eventRecord</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">eventRecord</span> <span class="p">==</span> <span class="kc">null</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">null</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">extendedDataCount</span> <span class="p">=</span> <span class="n">eventRecord</span><span class="p">-&gt;</span><span class="n">ExtendedDataCount</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="kt">var</span> <span class="n">dataIndex</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">dataIndex</span> <span class="p">&lt;</span> <span class="n">extendedDataCount</span><span class="p">;</span> <span class="n">dataIndex</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">extendedData</span> <span class="p">=</span> <span class="n">eventRecord</span><span class="p">-&gt;</span><span class="n">ExtendedData</span><span class="p">[</span><span class="n">dataIndex</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">extendedData</span><span class="p">.</span><span class="n">ExtType</span> <span class="p">==</span> <span class="n">TraceEventNativeMethods</span><span class="p">.</span><span class="n">EVENT_HEADER_EXT_TYPE_STACK_TRACE64</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">stackRecord</span> <span class="p">=</span> <span class="p">(</span><span class="n">TraceEventNativeMethods</span><span class="p">.</span><span class="n">EVENT_EXTENDED_ITEM_STACK_TRACE64</span><span class="p">*)</span><span class="n">extendedData</span><span class="p">.</span><span class="n">DataPtr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">addresses</span> <span class="p">=</span> <span class="p">&amp;</span><span class="n">stackRecord</span><span class="p">-&gt;</span><span class="n">Address</span><span class="p">[</span><span class="m">0</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">addressCount</span> <span class="p">=</span> <span class="p">(</span><span class="n">extendedData</span><span class="p">.</span><span class="n">DataSize</span> <span class="p">-</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">UInt64</span><span class="p">))</span> <span class="p">/</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">UInt64</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">addressCount</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="kc">null</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">callStackAddresses</span> <span class="p">=</span> <span class="k">new</span> <span class="kt">ulong</span><span class="p">[</span><span class="n">addressCount</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="p">(</span><span class="kt">var</span> <span class="n">index</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">index</span> <span class="p">&lt;</span> <span class="n">addressCount</span><span class="p">;</span> <span class="n">index</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">callStackAddresses</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="p">=</span> <span class="n">addresses</span><span class="p">[</span><span class="n">index</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="k">new</span> <span class="n">EventPipeUnresolvedStack</span><span class="p">(</span><span class="n">callStackAddresses</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">extendedData</span><span class="p">.</span><span class="n">ExtType</span> <span class="p">==</span> <span class="n">TraceEventNativeMethods</span><span class="p">.</span><span class="n">EVENT_HEADER_EXT_TYPE_STACK_TRACE32</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">stackRecord</span> <span class="p">=</span> <span class="p">(</span><span class="n">TraceEventNativeMethods</span><span class="p">.</span><span class="n">EVENT_EXTENDED_ITEM_STACK_TRACE32</span><span class="p">*)</span><span class="n">extendedData</span><span class="p">.</span><span class="n">DataPtr</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">addresses</span> <span class="p">=</span> <span class="p">&amp;</span><span class="n">stackRecord</span><span class="p">-&gt;</span><span class="n">Address</span><span class="p">[</span><span class="m">0</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">addressCount</span> <span class="p">=</span> <span class="p">(</span><span class="n">extendedData</span><span class="p">.</span><span class="n">DataSize</span> <span class="p">-</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">UInt32</span><span class="p">))</span> <span class="p">/</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">UInt32</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">addressCount</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="k">return</span> <span class="kc">null</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">callStackAddresses</span> <span class="p">=</span> <span class="k">new</span> <span class="kt">ulong</span><span class="p">[</span><span class="n">addressCount</span><span class="p">];</span>  <span class="c1">// store the 32 addresses as 64 bit addresses</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="p">(</span><span class="kt">var</span> <span class="n">index</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">index</span> <span class="p">&lt;</span> <span class="n">addressCount</span><span class="p">;</span> <span class="n">index</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">callStackAddresses</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="p">=</span> <span class="n">addresses</span><span class="p">[</span><span class="n">index</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="k">new</span> <span class="n">EventPipeUnresolvedStack</span><span class="p">(</span><span class="n">callStackAddresses</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="kc">null</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that the last version of TraceEvent nuget provides a public access to the <strong>eventRecord</strong> field so it is no more needed to use the <strong>UnsafeAccessor</strong> attribute used by Olivier.</p>
+<h2 id="symbolize-the-call-stack-addresses">Symbolize the call stack addresses<a hidden class="anchor" aria-hidden="true" href="#symbolize-the-call-stack-addresses">#</a></h2>
+<p>Address is good but the corresponding method name is better. I won’t repeat what I’ve already detailed in <a href="https://techblog.criteo.com/build-your-own-net-memory-profiler-in-c-call-stacks-2-2-2-ec9657eb17f9?source=friends_link&amp;sk=b34465f583867cb7dcf5bad6395bf151">an older post</a> that shows how to get the name of a native and managed name from an instruction pointer address. Instead, I want to pinpoint a big limitation of this solution to listen to CLR provider <strong>MethodLoadVerbose</strong>/<strong>MethodDCStartVerboseV2</strong> events. If the methods you are interested in are jitted BEFORE your tool attaches to the application, you will never get these events.</p>
+<p>You could get the same mapping address span/method name via the other “<em>Microsoft-Windows-DotNETRuntimeRundown</em>” provider and its <strong>MethodDCEndVerbose</strong> event that contains the expected <strong>MethodStartAddress</strong>, <strong>MethodSize</strong> and <strong>MethodName</strong> in its <a href="https://github.com/dotnet/runtime/blob/d897415e02340a13dc1c5078c09937bdf7ec8a56/src/coreclr/vm/ClrEtwAll.man#L4864">payload</a>. But I need this information before the end of the application…</p>
+<p>Looking at <a href="https://github.com/dotnet/docs/blob/main/docs/framework/performance/clr-etw-keywords-and-levels.md#keyword-combinations-for-symbol-resolution-for-the-rundown-provider">the documentation</a>, it seems that the rundown provider accepts the <strong>StartRundownKeyword</strong> value to emit the DCStart events when the provider is enabled! <a href="https://github.com/dotnet/runtime/issues/42378">Since .NET 9</a>, it is possible to pass the keywords you want (before, the default value did not contain <strong>StartRundownKeyword</strong>) when creating the EventPipe session</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="c1">//                V-- this is the default rundown keyword</span>
+</span></span><span class="line"><span class="cl"><span class="n">rundownKeywords</span> <span class="p">=</span> <span class="m">0x80020139</span> <span class="p">|</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">ClrTraceEventParser</span><span class="p">.</span><span class="n">Keywords</span><span class="p">.</span><span class="n">StartEnumeration</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">config</span> <span class="p">=</span> <span class="k">new</span> <span class="n">EventPipeSessionConfiguration</span><span class="p">(</span><span class="n">GetProviders</span><span class="p">(),</span> <span class="m">256</span><span class="p">,</span> <span class="n">rundownKeywords</span><span class="p">,</span> <span class="kc">true</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="p">(</span><span class="kt">var</span> <span class="n">session</span> <span class="p">=</span> <span class="n">client</span><span class="p">.</span><span class="n">StartEventPipeSession</span><span class="p">(</span><span class="n">config</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">source</span> <span class="p">=</span> <span class="k">new</span> <span class="n">EventPipeEventSource</span><span class="p">(</span><span class="n">session</span><span class="p">.</span><span class="n">EventStream</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">RegisterListeners</span><span class="p">(</span><span class="n">source</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// this is a blocking call</span>
+</span></span><span class="line"><span class="cl">    <span class="n">source</span><span class="p">.</span><span class="n">Process</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that you should not add the rundown provider to the list passed as parameter.</p>
+<p>Unfortunately, there is <a href="https://github.com/dotnet/runtime/issues/42378">currently an issue in the runtime since September 2020</a> that pinpoints this exact problem. I even tried to create and close a session to get the DCStop events before recreating a new one, but I failed.</p>
+<p>The next episode will talk about how it is possible to start a .NET application and get the events since its startup… with the problems that are happening.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/dotnet-tools/">Dotnet-Tools</a></li>
+      <li><a href="http://localhost:1313/tags/pdb/">PDB</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2025-03-13_how-to-monitor-net/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>How to monitor .NET applications startup</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2024-12-13_monitor-http-redirects-to/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Monitor HTTP redirects to reduce unexpected latency</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

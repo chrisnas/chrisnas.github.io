@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Getting another view on thread stacks with ClrMD | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, debugging, diagnostics, memory, ClrMD, HTTP">
+<meta name="description" content="This post of the series details how to look into your threads stack with ClrMD to get method calls, parameters and local variables.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2019-12-31_getting-another-view-on/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2019-12-31_getting-another-view-on/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Getting another view on thread stacks with ClrMD
+    </h1>
+    <div class="post-description">
+      This post of the series details how to look into your threads stack with ClrMD to get method calls, parameters and local variables.
+    </div>
+    <div class="post-meta"><span title='2019-12-31 10:52:00.094 +0000 UTC'>December 31, 2019</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2019-12-31_getting-another-view-on/1__F2Z31l2DikZkOVEr6SSmQ.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#use-windbg--sosluke" aria-label="Use WinDBG &#43; SOS Luke!">Use WinDBG + SOS Luke!</a></li>
+                <li>
+                    <a href="#merging-methods-and-parameterslocals" aria-label="Merging methods and parameters/locals">Merging methods and parameters/locals</a></li>
+                <li>
+                    <a href="#getting-instances-from-thestack" aria-label="Getting instances from the stack">Getting instances from the stack</a></li>
+                <li>
+                    <a href="#resources" aria-label="Resources">Resources</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p>This post of the series details how to look into your threads stack with ClrMD.</p>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>It’s been a long time (see the resources at the end) since I’ve been discussing what ClrMD could bring to .NET developers/DevOps! My colleague <a href="https://twitter.com/KooKiz">Kevin</a> just wrote <a href="https://medium.com/@kevingosse/dumping-stack-objects-with-clrmd-c002dab4651b">an article about how to emulate SOS <strong>DumpStackObjects</strong></a> command both on Windows and Linux with ClrMD. This implementation lists the objects on the stack but without their values (like strings content for example) nor the stack frames corresponding to the method calls.</p>
+<p>The rest of the post will show you, with ClrMD, how to get an higher view, closer to what the SOS <strong>ClrStack</strong> command could provide.</p>
+<p>Let’s take this simple application as an example:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Program</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">static</span> <span class="k">void</span> <span class="n">Main</span><span class="p">(</span><span class="kt">string</span><span class="p">[]</span> <span class="n">args</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Host</span> <span class="n">h</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Host</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">h</span><span class="p">.</span><span class="n">Base</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Host</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="k">void</span> <span class="n">Base</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">int</span> <span class="n">iValue</span> <span class="p">=</span> <span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">().</span><span class="n">GetHashCode</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">bool</span> <span class="n">bValue</span> <span class="p">=</span> <span class="p">(</span><span class="n">iValue</span> <span class="p">%</span> <span class="m">2</span><span class="p">)</span> <span class="p">==</span> <span class="m">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">string</span> <span class="n">parameter</span> <span class="p">=</span> <span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">().</span><span class="n">ToString</span><span class="p">().</span><span class="n">Substring</span><span class="p">(</span><span class="m">0</span><span class="p">,</span><span class="m">1</span><span class="p">)</span> <span class="p">+</span> <span class="s">&#34;_1234567890&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="n">parameter</span> <span class="p">+</span> <span class="s">&#34; = &#34;</span> <span class="p">+</span> <span class="n">First</span><span class="p">(</span><span class="n">iValue</span><span class="p">,</span> <span class="n">bValue</span><span class="p">,</span> <span class="n">parameter</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kt">int</span> <span class="n">First</span><span class="p">(</span><span class="kt">int</span> <span class="n">iValue</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">bValue</span><span class="p">,</span> <span class="kt">string</span> <span class="n">parameter</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Guid</span> <span class="n">guid</span> <span class="p">=</span> <span class="n">Guid</span><span class="p">.</span><span class="n">NewGuid</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">Second</span><span class="p">(</span><span class="n">bValue</span><span class="p">,</span> <span class="n">guid</span><span class="p">)</span> <span class="p">/</span> <span class="m">2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kt">int</span> <span class="n">Second</span><span class="p">(</span><span class="kt">bool</span> <span class="n">bValue</span><span class="p">,</span> <span class="n">Guid</span> <span class="n">guid</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">Third</span><span class="p">(</span><span class="n">guid</span><span class="p">).</span><span class="n">Length</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kt">string</span> <span class="n">Third</span><span class="p">(</span><span class="n">Guid</span> <span class="n">guid</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;call   procdump -ma {Process.GetCurrentProcess().Id}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">ReadLine</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="s">$&#34;{guid.GetHashCode()}#{guid.GetHashCode()}#{guid.GetHashCode()}&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>As you can see, I’ve mixed value and reference types as parameters and local variables up to the call to the <code>Third</code> method that displays the <a href="https://docs.microsoft.com/en-us/sysinternals/downloads/procdump"><strong>procdump</strong></a> command line to execute in order to generate a memory dump of the process.</p>
+<h2 id="use-windbg--sosluke">Use WinDBG + SOS Luke!<a hidden class="anchor" aria-hidden="true" href="#use-windbg--sosluke">#</a></h2>
+<p>When you open it with WinDBG and load SOS, here is the result of the <strong>dso</strong> command:</p>
+<p><img loading="lazy" src="/posts/2019-12-31_getting-another-view-on/1_LJ5KZ3Vymkcla6eJ3sug6Q.png"></p>
+<p>The <strong>clrstack</strong> command shows the stacked method calls:</p>
+<p><img loading="lazy" src="/posts/2019-12-31_getting-another-view-on/1_0lB0DVD8gCrEPYYQBHIUKQ.png"></p>
+<p>And if you use the <strong>-a</strong> parameter, you will get methods with their parameters and local variables (or <strong>-p</strong> for parameters only and <strong>-l</strong> for local variables only):</p>
+<p><img loading="lazy" src="/posts/2019-12-31_getting-another-view-on/1_PMv0oK5BqBCBDrI_bF1g5w.png"></p>
+<p>It is weird that SOS implementation does not give the type of both the parameters and locals. But wait! While researching for this post, I looked at the SOS implementation (now in the strike.cs file moved from the <strong>coreclr</strong> to the <strong>diagnostics</strong> repository) to <a href="https://github.com/dotnet/diagnostics/blob/master/src/SOS/Strike/strike.cpp#L13165">find this nice comment</a>:</p>
+<p><img loading="lazy" src="/posts/2019-12-31_getting-another-view-on/1_Rg0WDui494pjE9ari7U0FA.png"></p>
+<p>So I tried <strong>clrstack</strong> with <strong>-i</strong> and I got the types for parameters (and locals unlike what the comments implies):</p>
+<p><img loading="lazy" src="/posts/2019-12-31_getting-another-view-on/1_nrTH9uu64zU2MLxM8whBjQ.png"></p>
+<p>Even though <strong>clrstack</strong> supports the <strong>-all</strong> flag to dump the call stack of all managed threads, you might need to do your own automatic analysis on hundreds of threads and this is where ClrMD shines.</p>
+<h2 id="merging-methods-and-parameterslocals">Merging methods and parameters/locals<a hidden class="anchor" aria-hidden="true" href="#merging-methods-and-parameterslocals">#</a></h2>
+<p>When I read Kevin’s post, I immediately thought about adding the method call on the stack based on the <a href="https://github.com/chrisnas/DebuggingExtensions/commit/4061a2c885241edd2bf964db9b7af94fc7dcd778">work I’ve done in March 2019</a> to implement the <a href="https://github.com/chrisnas/DebuggingExtensions/releases/download/1.6.3/pstacks1.3.zip">pstacks tool</a>. At that time, my goal was to aggregate the call stacks of a large number of threads in order to find out pattern of blocked threads, sharing the “same” call stacks. Visual Studio provides a great “Parallel Stacks” pane but I needed it for both Windows and Linux.</p>
+<p>To list all the call stack with ClrMD, you <a href="https://github.com/chrisnas/DebuggingExtensions/blob/master/src/ParallelStacks.Runtime/ParallelStack.cs#L11">simply</a> enumerate the managed threads and for each one, its <code>StackTrace</code> property contains the list of <code>StackFrame</code> objects corresponding to each method call.</p>
+<p><img loading="lazy" src="/posts/2019-12-31_getting-another-view-on/1__F2Z31l2DikZkOVEr6SSmQ.png"></p>
+<p>The <code>StackPointer</code> property of each frame contains the address of the frame in the call stack, allowing a mapping of the method call with its parameters and locals:</p>
+<p><img loading="lazy" src="/posts/2019-12-31_getting-another-view-on/1_HQVchR6XY_1E18Wr7k_8ow.png"></p>
+<p>As always with stacks, lower addresses correspond to the last things added to the stack (i.e. last called method). While checking between what is shown by SOS, the parameters/locals addresses and frame stack pointers, you realize that all objects at an address in the stack equal or below the <code>StackPointer</code> of a frame are either parameters or local variables of the frame method.</p>
+<p>Even better, for non static method, you can guess what is the <em><strong>this</strong></em>* *implicit parameter if the address is the same as the frame <code>StackPointer</code>; shown with the green <strong>=</strong> sign in the previous screenshot and prefixed by <strong>&gt;</strong> in Kevin’s updated code that merges the method calls to the parameters and locals:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">ulong</span> <span class="n">ptr</span> <span class="p">=</span> <span class="n">stackTop</span><span class="p">;</span> <span class="n">ptr</span> <span class="p">&lt;=</span> <span class="n">stackLimit</span><span class="p">;</span> <span class="n">ptr</span> <span class="p">+=</span> <span class="p">(</span><span class="kt">ulong</span><span class="p">)</span><span class="n">runtime</span><span class="p">.</span><span class="n">PointerSize</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// look for the frame corresponding to the current position in the stack</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">currentFrame</span><span class="p">.</span><span class="n">StackPointer</span> <span class="p">&lt;=</span> <span class="n">ptr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="n">FormatFrame</span><span class="p">(</span><span class="n">currentFrame</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">nFrame</span><span class="p">++;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">nFrame</span> <span class="p">&lt;</span> <span class="n">frames</span><span class="p">.</span><span class="n">Count</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">currentFrame</span> <span class="p">=</span> <span class="n">frames</span><span class="p">[</span><span class="n">nFrame</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">ulong</span> <span class="n">obj</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(!</span><span class="n">runtime</span><span class="p">.</span><span class="n">ReadPointer</span><span class="p">(</span><span class="n">ptr</span><span class="p">,</span> <span class="k">out</span> <span class="n">obj</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(!</span><span class="n">IsInHeap</span><span class="p">(</span><span class="n">heap</span><span class="p">,</span> <span class="n">obj</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">continue</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">type</span> <span class="p">=</span> <span class="n">heap</span><span class="p">.</span><span class="n">GetObjectType</span><span class="p">(</span><span class="n">obj</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">type</span> <span class="p">==</span> <span class="kc">null</span> <span class="p">||</span> <span class="n">type</span><span class="p">.</span><span class="n">IsFree</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">continue</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// try to find implicit &#34;this&#34; parameter in case of non-static method</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">myFrame</span> <span class="p">=</span> <span class="p">(</span><span class="n">nFrame</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span> <span class="p">?</span> <span class="n">currentFrame</span> <span class="p">:</span> <span class="n">frames</span><span class="p">[</span><span class="n">nFrame</span><span class="p">-</span><span class="m">1</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">    <span class="n">separator</span> <span class="p">=</span> <span class="p">((</span><span class="n">myFrame</span><span class="p">.</span><span class="n">StackPointer</span> <span class="p">==</span> <span class="n">ptr</span><span class="p">)</span> <span class="p">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">                 <span class="p">(</span><span class="n">myFrame</span><span class="p">.</span><span class="n">Method</span> <span class="p">!=</span> <span class="kc">null</span><span class="p">)</span> <span class="p">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">                 <span class="p">(!</span><span class="n">myFrame</span><span class="p">.</span><span class="n">Method</span><span class="p">.</span><span class="n">IsStatic</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">?</span> <span class="s">&#34;&gt;&#34;</span> 
+</span></span><span class="line"><span class="cl">        <span class="p">:</span> <span class="s">&#34; &#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">Write</span><span class="p">(</span><span class="s">$&#34;{ptr:x16}   {separator} &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DumpObject</span><span class="p">(</span><span class="n">heap</span><span class="p">,</span> <span class="n">type</span><span class="p">,</span> <span class="p">(</span><span class="kt">ulong</span><span class="p">)</span><span class="n">obj</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <code>FormatFrame</code> helper method simply prefix static methods with <strong>#</strong> instead of <strong>|</strong> for instance methods:</p>
+<p>Unfortunately, I did not find any way with ClrMD to make the difference between parameters and locals. Based on what you can see in SOS implementation <a href="https://github.com/dotnet/diagnostics/blob/master/src/SOS/Strike/strike.cpp#L12916">of this part</a> of the <strong>clrstack</strong> command, it relies on the <code>EnumerateArguments</code> and <code>EnumetateLocalVariables</code> methods of <code>ICorDebugILFrame</code> which is not exposed by ClrMD. There is another undocumented implementation based on <a href="https://github.com/dotnet/coreclr/blob/master/src/pal/prebuilt/inc/xclrdata.h#L6067">private interfaces</a> I could not leverage neither. For a larger discussion around stack walking in .NET, read <a href="https://mattwarren.org/2019/01/21/Stackwalking-in-the-.NET-Runtime/">this great post</a> by Matt Warren.</p>
+<p>Also, without any explicit access to specific parameter or local, I did not find a way to get the value of primitive and value type instances stored on the stack. However, it is still possible to get them for boxed ones and reference type instances such as string for example.</p>
+<h2 id="getting-instances-from-thestack">Getting instances from the stack<a hidden class="anchor" aria-hidden="true" href="#getting-instances-from-thestack">#</a></h2>
+<p>In the last code excerpt, I did not describe the <code>DumpObject</code> helper method used to display an object on the stack. The implementation provided by Kevin was used to show the address and the type of the object:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;{objAddress:x16} {type.Name}&#34;</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The next step would be to display value for primitive types such as numbers, boolean, string and even array size:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="k">void</span> <span class="n">DumpObject</span><span class="p">(</span><span class="n">ClrHeap</span> <span class="n">heap</span><span class="p">,</span> <span class="n">ClrType</span> <span class="n">type</span><span class="p">,</span> <span class="kt">ulong</span> <span class="n">objAddress</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// get value for simple types</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">string</span> <span class="n">valueOrAddress</span> <span class="p">=</span> 
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.Char&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{type.GetValue(objAddress),16}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.String&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(type.GetValue(objAddress).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.Bool&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((bool)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.Byte&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((byte)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.SByte&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((sbyte)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.Decimal&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((decimal)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.Double&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((double)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.Single&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((float)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.Int32&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((int)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.SInt32&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((uint)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.Int64&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((long)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">Name</span> <span class="p">==</span> <span class="s">&#34;System.SInt64&#34;</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(((ulong)type.GetValue(objAddress)).ToString())}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">type</span><span class="p">.</span><span class="n">IsArray</span><span class="p">)</span> <span class="p">?</span> <span class="s">$&#34;{FormatString(GetArrayAsString(type, objAddress))}&#34;</span> <span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="s">$&#34;{objAddress:x16}&#34;</span><span class="p">;</span>  <span class="c1">// work also for IntPtr</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;{valueOrAddress} {type.Name}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Most of this code is based on the <code>GetValue</code> helper from <code>ClrType</code>: it returns the right “thing” for simple types. Look at ClrMD <a href="https://github.com/microsoft/clrmd/blob/c35e2115241e7dc6f9c835b4c59b9e396ec6471b/src/Microsoft.Diagnostics.Runtime/src/Implementation/ValueReader.cs#L33">implementation details</a> to get a better understanding of how the value is rebuilt.</p>
+<p>The <code>GetArrayAsString</code> simply returns the number of elements in the array:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="kt">string</span> <span class="n">GetArrayAsString</span><span class="p">(</span><span class="n">ClrType</span> <span class="n">type</span><span class="p">,</span> <span class="kt">ulong</span> <span class="n">objAddress</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">elementCount</span> <span class="p">=</span> <span class="n">type</span><span class="p">.</span><span class="n">GetArrayLength</span><span class="p">(</span><span class="n">objAddress</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="s">$&#34;length = {elementCount}&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>And the call stack is now complete!</p>
+<p><img loading="lazy" src="/posts/2019-12-31_getting-another-view-on/1_-N5vbQ2oPCAath_WSutxKA.png"></p>
+<p>Note that you may even get more locals or parameters than with WinDBG+SOS but don’t ask me why…</p>
+<p>For more advanced object formatting cases such as dumping structs or enumerating fields and their value, I would highly recommend to look at the related <a href="https://github.com/microsoft/dotnet-samples/blob/master/Microsoft.Diagnostics.Runtime/CLRMD/docs/TypesAndFields.md">ClrMD documentation page</a> (just replace <code>GCHeapType</code> by <code>ClrType</code> and you’ll be safe).</p>
+<h2 id="resources">Resources<a hidden class="anchor" aria-hidden="true" href="#resources">#</a></h2>
+<ul>
+<li><a href="https://medium.com/@kevingosse/dumping-stack-objects-with-clrmd-c002dab4651b">Dumping stack objects with ClrMD</a> by <a href="https://twitter.com/KooKiz">Kevin Gosse</a></li>
+<li><a href="https://mattwarren.org/2019/01/21/Stackwalking-in-the-.NET-Runtime/">Stack walking in the .NET Runtime</a> by <a href="https://twitter.com/matthewwarren">Matt Warren</a></li>
+<li>Part 1: <a href="http://labs.criteo.com/2017/02/going-beyond-sos-clrmd-part-1">Bootstrap ClrMD to load a dump</a>.</li>
+<li>Part 2: <a href="http://labs.criteo.com/2017/03/clrmd-part-2-clrruntime-clrheap-traverse-managed-heap/">Find duplicated strings with ClrMD heap traversing</a>.</li>
+<li>Part 3: <a href="http://labs.criteo.com/2017/04/clrmd-part-3-dea%E2%80%A6s-to-list-timers/">List timers by following static fields links</a>.</li>
+<li>Part 4: <a href="http://labs.criteo.com/2017/05/clrmd-part-4-callbacks-called-timers/">Identify timers callback and other properties</a>.</li>
+<li>Part 5: <a href="http://labs.criteo.com/2017/06/clrmd-part-5-how-to-use-clrmd-to-extend-sos-in-windbg/">Use ClrMD to extend SOS in WinDBG</a>.</li>
+<li>Part 6: <a href="http://labs.criteo.com/2017/08/clrmd-part-6-manipulate-memory-structures-like-real-objects/">Manipulate memory structures like real objects</a>.</li>
+<li>Part 7: <a href="http://labs.criteo.com/2017/08/clrmd-part-7-manipulate-nested-structs-using-dynamic/">Manipulate nested structs using dynamic</a>.</li>
+<li>Part 8: <a href="http://labs.criteo.com/2017/11/clrmd-part-8-spelunking-inside-the-net-thread-pool/">Spelunking inside the .NET Thread Pool</a></li>
+<li>Part 9: <a href="https://labs.criteo.com/2017/12/clrmd-part-9-deciphering-tasks-thread-pool-items/">Deciphering Tasks and Thread Pool items</a></li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/clrmd/">ClrMD</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2020-02-21_debugging-wednesday-cancel-thi/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Debugging Wednesday at Criteo — Cancel this task!</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2019-11-21_wsl-visual-studio-attaching/">
+    <span class="title">Next »</span>
+    <br>
+    <span>WSL &#43; Visual Studio = attaching/launching a Linux .NET Core application on my Window 10</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

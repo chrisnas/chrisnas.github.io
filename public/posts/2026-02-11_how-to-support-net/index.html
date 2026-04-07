@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>How to support .NET Framework PDB format and source line with ISymUnmanagedReader | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, debugging, performance, diagnostics, memory, PDB, DbgHelp, ClrMD, Cursor">
+<meta name="description" content="After DIA and DbgHelp, time to dig into ISymUnmanagedReader to get its line in source code.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2026-02-11_how-to-support-net/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2026-02-11_how-to-support-net/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      How to support .NET Framework PDB format and source line with ISymUnmanagedReader
+    </h1>
+    <div class="post-description">
+      After DIA and DbgHelp, time to dig into ISymUnmanagedReader to get its line in source code.
+    </div>
+    <div class="post-meta"><span title='2026-02-11 09:16:11.72 +0000 UTC'>February 11, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2026-02-11_how-to-support-net/1_ZBXLm1oWWKp4pacMcX3g5Q.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#a-little-bit-ofmagic" aria-label="A little bit of magic">A little bit of magic</a></li>
+                <li>
+                    <a href="#hosting-theclr" aria-label="Hosting the CLR">Hosting the CLR</a></li>
+                <li>
+                    <a href="#the-road-to-get-symbol-details-for-amethod" aria-label="The road to get symbol details for a method">The road to get symbol details for a method</a></li>
+                <li>
+                    <a href="#give-me-line-and-sourcecode" aria-label="Give me line and source code!">Give me line and source code!</a></li>
+                <li>
+                    <a href="#references" aria-label="References">References</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p>In my previous posts, I explained how to use <a href="/posts/2025-12-08_how-to-dump-function/">DIA</a> and <a href="/posts/2026-01-16_but-where-is-my/">DbgHelp</a> to map a method to its line in source code. I forgot to mention that it was correct for .NET Core but not for the “old” .NET Framework Windows PDB format. Instead of encoding the method token in the name, the symbol file contains the name of the methods. So, how to do the mapping for .NET Framework assemblies? You will find the answer (plus some tricks) in this article.</p>
+<p>When I started to work on the support of the old Windows PDB format, I looked at what existed to parse the <a href="https://github.com/microsoft/microsoft-pdb/tree/master">raw format</a> and… I decided to try DbgHelp instead. With this <a href="/posts/2026-01-16_but-where-is-my/">first implementation</a>, I realized that some token where missing and source code information was not retrieved for most of the methods.</p>
+<p><img loading="lazy" src="/posts/2026-02-11_how-to-support-net/1_ppZFw6o-Ygx7BzpX3jyWIw.png"></p>
+<p>So, I looked for another API to use and I found <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanagedreader-interface?WT.mc_id=DT-MVP-5003325">ISymUnmanagedReader</a>. The usage philosophy is totally different from DIA or DbgHelp.</p>
+<h2 id="a-little-bit-ofmagic">A little bit of magic<a hidden class="anchor" aria-hidden="true" href="#a-little-bit-ofmagic">#</a></h2>
+<p>This interface is implemented in diasymreader.dll that comes with every .NET Framework installation. But you need to do COM magic to get it. After having called <a href="https://learn.microsoft.com/en-us/windows/win32/api/objbase/nf-objbase-coinitialize?WT.mc_id=DT-MVP-5003325"><strong>CoInitialize</strong></a> to setup COM, you ask for an instance of <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanagedbinder-interface?WT.mc_id=DT-MVP-5003325"><strong>ISymUnmanagedBinder</strong></a> from <strong>CLSID_CorSymBinder_SxS</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">CComPtr</span><span class="o">&lt;</span><span class="n">ISymUnmanagedBinder</span><span class="o">&gt;</span> <span class="n">pBinder</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">CoCreateInstance</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">CLSID_CorSymBinder_SxS</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">NULL</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">CLSCTX_INPROC_SERVER</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">IID_ISymUnmanagedBinder</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="kt">void</span><span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">pBinder</span>
+</span></span><span class="line"><span class="cl"><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>From the binder, you can get the <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanagedreader-interface?WT.mc_id=DT-MVP-5003325"><strong>ISymUnmanagedReader</strong> interface</a> corresponding to the assembly you are interested in with <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanagedbinder-getreaderforfile-method?WT.mc_id=DT-MVP-5003325"><strong>GetReaderForFile</strong></a>. However, there are two tiny details to consider.</p>
+<p>First, one parameter expects the path to the assembly, not to the .pdb file. That symbol file has to be stored in the same folder but note that the documentation states that you could have more flexible search with <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanagedbinder2-getreaderforfile2-method?WT.mc_id=DT-MVP-5003325"><strong>ISymUnmanagedBinder2::GetReaderForFile2</strong></a> but I did not test it.</p>
+<p>The second detail is the first parameter: an instance of <strong>IMetaDataImport</strong> for the same assembly. The steps to get it are… complicated.</p>
+<h2 id="hosting-theclr">Hosting the CLR<a hidden class="anchor" aria-hidden="true" href="#hosting-theclr">#</a></h2>
+<p>The idea is to host the .NET Framework and get the corresponding <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-interface?WT.mc_id=DT-MVP-5003325">ICLRMetaHost</a> interface:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">CComPtr</span><span class="o">&lt;</span><span class="n">ICLRMetaHost</span><span class="o">&gt;</span> <span class="n">pMetaHost</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">HRESULT</span> <span class="n">hr</span> <span class="o">=</span> <span class="n">CLRCreateInstance</span><span class="p">(</span><span class="n">CLSID_CLRMetaHost</span><span class="p">,</span> <span class="n">IID_ICLRMetaHost</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">pMetaHost</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Calling the <a href="CComPtr%3cICLRMetaHost%3e%20pMetaHost;"><strong>CLRCreateInstance</strong> API</a> allows you to get an instance of <strong>ICLRMetaHost</strong> from which you could <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrmetahost-enumerateinstalledruntimes-method?WT.mc_id=DT-MVP-5003325">enumerate installed version</a> of .NET Framework. In my case, I know which version I want:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Get the installed .NET Framework runtime (v4.0+)
+</span></span></span><span class="line"><span class="cl"><span class="n">CComPtr</span><span class="o">&lt;</span><span class="n">ICLRRuntimeInfo</span><span class="o">&gt;</span> <span class="n">pRuntimeInfo</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">pMetaHost</span><span class="o">-&gt;</span><span class="n">GetRuntime</span><span class="p">(</span><span class="sa">L</span><span class="s">&#34;v4.0.30319&#34;</span><span class="p">,</span> <span class="n">IID_ICLRRuntimeInfo</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">pRuntimeInfo</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/hosting/iclrruntimeinfo-interface?WT.mc_id=DT-MVP-5003325">ICLRRuntimeInfo interface</a> allows you to get access to runtime services via <strong>GetInterface</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">CComPtr</span><span class="o">&lt;</span><span class="n">IMetaDataDispenser</span><span class="o">&gt;</span> <span class="n">pDispenser</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">pRuntimeInfo</span><span class="o">-&gt;</span><span class="n">GetInterface</span><span class="p">(</span><span class="n">CLSID_CorMetaDataDispenser</span><span class="p">,</span> <span class="n">IID_IMetaDataDispenser</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">pDispenser</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The service I’m interested in is the <a href="https://learn.microsoft.com/en-us/windows/win32/api/rometadataapi/nn-rometadataapi-imetadatadispenser?WT.mc_id=DT-MVP-5003325"><strong>IMetadataDispenser</strong> interface</a> that allows you to “open a scope” on the assembly you are interested in:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">pDispenser</span><span class="o">-&gt;</span><span class="n">OpenScope</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">wModulePath</span><span class="p">.</span><span class="n">c_str</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ofRead</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">IID_IMetaDataImport</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">(</span><span class="n">IUnknown</span><span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">_pMetaDataImport</span>
+</span></span><span class="line"><span class="cl"><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that the first parameter is the path to the assembly not to the .pdb file. The scope is abstracted by an <strong>IMetadataImport</strong> interface <a href="/posts/2021-09-06_dealing-with-modules-assemblie/">I have already described</a> and that is needed to call <strong>GetReaderForFile</strong>: and get the <strong>ISymUnmanagedReader</strong>:</p>
+<p>hr = pBinder-&gt;GetReaderForFile(_pMetaDataImport, wModulePath.c_str(), nullptr, &amp;_pReader);</p>
+<h2 id="the-road-to-get-symbol-details-for-amethod">The road to get symbol details for a method<a hidden class="anchor" aria-hidden="true" href="#the-road-to-get-symbol-details-for-amethod">#</a></h2>
+<p>The <strong>ISymUnmanagedReader</strong> interface implements <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanagedreader-getmethod-method?WT.mc_id=DT-MVP-5003325"><strong>GetMethod</strong></a> to get details about a given method token via an <strong>ISymUnmanagedMethod</strong> interface. So, the next question is how to get these tokens. If you remember <a href="/posts/2026-01-16_but-where-is-my/">the previous article</a>, these tokens are from the 06 MethodDef table in the assembly metadata; starting from <strong>06000001</strong> to the last one.</p>
+<p>This means that you could write a simple loop starting from 1 up to a hardcoded maximum value, call <strong>TokenFromRid(index, mdtMethodDef)</strong> to get the corresponding token. However, since you are a professional developer, you would search for the exact number of tokens from <a href="https://learn.microsoft.com/en-us/dotnet/core/unmanaged-api/metadata/interfaces/imetadatatables-interface?WT.mc_id=DT-MVP-5003325"><strong>IMetadataTables</strong></a> retrieved from <strong>IMetadataImport</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">ULONG</span> <span class="n">cRows</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// Get IMetaDataTables interface to query the MethodDef table
+</span></span></span><span class="line"><span class="cl"><span class="n">CComPtr</span><span class="o">&lt;</span><span class="n">IMetaDataTables</span><span class="o">&gt;</span> <span class="n">pTables</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">_pMetaDataImport</span><span class="o">-&gt;</span><span class="n">QueryInterface</span><span class="p">(</span><span class="n">IID_IMetaDataTables</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span><span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">pTables</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">FAILED</span><span class="p">(</span><span class="n">hr</span><span class="p">)</span> <span class="o">||</span> <span class="n">pTables</span> <span class="o">==</span> <span class="k">nullptr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cRows</span> <span class="o">=</span> <span class="n">LAST_METHODDEF_TOKEN</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Get the number of rows in the MethodDef table (table index 0x06 = Method)
+</span></span></span><span class="line"><span class="cl">    <span class="n">hr</span> <span class="o">=</span> <span class="n">pTables</span><span class="o">-&gt;</span><span class="n">GetTableInfo</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="mh">0x06</span><span class="p">,</span>           <span class="c1">// MethodDef table
+</span></span></span><span class="line"><span class="cl">        <span class="nb">NULL</span><span class="p">,</span>           <span class="c1">// cbRow (not needed)
+</span></span></span><span class="line"><span class="cl">        <span class="o">&amp;</span><span class="n">cRows</span><span class="p">,</span>         <span class="c1">// pcRows (number of methods)
+</span></span></span><span class="line"><span class="cl">        <span class="nb">NULL</span><span class="p">,</span>           <span class="c1">// pcCols (not needed)
+</span></span></span><span class="line"><span class="cl">        <span class="nb">NULL</span><span class="p">,</span>           <span class="c1">// piKey (not needed)
+</span></span></span><span class="line"><span class="cl">        <span class="nb">NULL</span>            <span class="c1">// ppName (not needed)
+</span></span></span><span class="line"><span class="cl">    <span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">FAILED</span><span class="p">(</span><span class="n">hr</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cRows</span> <span class="o">=</span> <span class="n">LAST_METHODDEF_TOKEN</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Now that you have the number of rows (i.e. number of methods defined in the metadata), it is easy and safe to get method information from symbols:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="kt">uint32_t</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">cRows</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mdMethodDef</span> <span class="n">token</span> <span class="o">=</span> <span class="n">TokenFromRid</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">mdtMethodDef</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">CComPtr</span><span class="o">&lt;</span><span class="n">ISymUnmanagedMethod</span><span class="o">&gt;</span> <span class="n">pMethod</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">hr</span> <span class="o">=</span> <span class="n">_pReader</span><span class="o">-&gt;</span><span class="n">GetMethod</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">pMethod</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">SUCCEEDED</span><span class="p">(</span><span class="n">hr</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="n">pMethod</span> <span class="o">!=</span> <span class="k">nullptr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">MethodInfo</span> <span class="n">info</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">GetMethodInfoFromSymbol</span><span class="p">(</span><span class="n">pMethod</span><span class="p">,</span> <span class="n">info</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_methods</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">info</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that <strong>GetMethod</strong> might fail (returning <strong>E_FAIL</strong>) for P/Invoked functions, abstract methods, or methods decorated with <strong>DebuggerHidden</strong> attribute.</p>
+<h2 id="give-me-line-and-sourcecode">Give me line and source code!<a hidden class="anchor" aria-hidden="true" href="#give-me-line-and-sourcecode">#</a></h2>
+<p>For the other methods with symbol information, you can get its token via the <strong>GetToken</strong> method. The <strong>ISymUnmanagedMethod</strong> interface allows low level access to line/column mapping that is beyond the scope of this article. At a high level, positions in source file are named <em>sequence points</em>. Call <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanagedmethod-getsequencepointcount-method?WT.mc_id=DT-MVP-5003325"><strong>GetSequencePointCount</strong></a> to get… the number of sequence points for a given method.</p>
+<p>The next step is to call <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanagedmethod-getsequencepoints-method?WT.mc_id=DT-MVP-5003325">GetSequencePoints</a> with the number of points you want and the corresponding arrays of offsets, lines, columns, end lines, end columns and <strong>ISymUnmanagedDocument</strong>. In my case, I’m only interested in where the method starts so the first sequence point is good enough:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Get sequence points (source line information)
+</span></span></span><span class="line"><span class="cl"><span class="n">ULONG32</span> <span class="n">cPoints</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">pMethod</span><span class="o">-&gt;</span><span class="n">GetSequencePointCount</span><span class="p">(</span><span class="o">&amp;</span><span class="n">cPoints</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">SUCCEEDED</span><span class="p">(</span><span class="n">hr</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">cPoints</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cPoints</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="c1">// We only need the first sequence point for start line
+</span></span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">ULONG32</span><span class="o">&gt;</span> <span class="n">offsets</span><span class="p">(</span><span class="n">cPoints</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">ULONG32</span><span class="o">&gt;</span> <span class="n">lines</span><span class="p">(</span><span class="n">cPoints</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">ULONG32</span><span class="o">&gt;</span> <span class="n">columns</span><span class="p">(</span><span class="n">cPoints</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">ULONG32</span><span class="o">&gt;</span> <span class="n">endLines</span><span class="p">(</span><span class="n">cPoints</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">ULONG32</span><span class="o">&gt;</span> <span class="n">endColumns</span><span class="p">(</span><span class="n">cPoints</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">ISymUnmanagedDocument</span><span class="o">*&gt;</span> <span class="n">documents</span><span class="p">(</span><span class="n">cPoints</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">ULONG32</span> <span class="n">actualCount</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">hr</span> <span class="o">=</span> <span class="n">pMethod</span><span class="o">-&gt;</span><span class="n">GetSequencePoints</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cPoints</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="o">&amp;</span><span class="n">actualCount</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="o">&amp;</span><span class="n">offsets</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="o">&amp;</span><span class="n">documents</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="o">&amp;</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="o">&amp;</span><span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="o">&amp;</span><span class="n">endLines</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="o">&amp;</span><span class="n">endColumns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">SUCCEEDED</span><span class="p">(</span><span class="n">hr</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">actualCount</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The source file is described by <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanageddocument-interface?WT.mc_id=DT-MVP-5003325">ISymUnmanagedDocument</a> that provides its name when <a href="https://learn.microsoft.com/en-us/dotnet/framework/unmanaged-api/diagnostics/isymunmanageddocument-geturl-method?WT.mc_id=DT-MVP-5003325"><strong>GetURL</strong></a> is called:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// Get the first sequence point&#39;s document and line
+</span></span></span><span class="line"><span class="cl">        <span class="n">ISymUnmanagedDocument</span><span class="o">*</span> <span class="n">pDoc</span> <span class="o">=</span> <span class="n">documents</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">pDoc</span> <span class="o">!=</span> <span class="k">nullptr</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// Get document URL (file path)
+</span></span></span><span class="line"><span class="cl">            <span class="n">ULONG32</span> <span class="n">urlLen</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">hr</span> <span class="o">=</span> <span class="n">pDoc</span><span class="o">-&gt;</span><span class="n">GetURL</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">urlLen</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">SUCCEEDED</span><span class="p">(</span><span class="n">hr</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">urlLen</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">WCHAR</span><span class="o">&gt;</span> <span class="n">url</span><span class="p">(</span><span class="n">urlLen</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">                <span class="n">hr</span> <span class="o">=</span> <span class="n">pDoc</span><span class="o">-&gt;</span><span class="n">GetURL</span><span class="p">(</span><span class="n">urlLen</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">urlLen</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">url</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">                <span class="k">if</span> <span class="p">(</span><span class="n">SUCCEEDED</span><span class="p">(</span><span class="n">hr</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">                <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                    <span class="c1">// Convert wide string to narrow string
+</span></span></span><span class="line"><span class="cl">                    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">WideCharToMultiByte</span><span class="p">(</span><span class="n">CP_UTF8</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">url</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">urlLen</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">                    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">narrowUrl</span><span class="p">(</span><span class="n">len</span><span class="p">,</span> <span class="sc">&#39;\0&#39;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">                    <span class="n">WideCharToMultiByte</span><span class="p">(</span><span class="n">CP_UTF8</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">url</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">urlLen</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">narrowUrl</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">len</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">                    <span class="n">info</span><span class="p">.</span><span class="n">sourceFile</span> <span class="o">=</span> <span class="n">narrowUrl</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="c1">// NOTE: 0xFEEFEE is a special value indicating hidden lines
+</span></span></span><span class="line"><span class="cl">            <span class="n">info</span><span class="p">.</span><span class="n">lineNumber</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">            <span class="n">pDoc</span><span class="o">-&gt;</span><span class="n">Release</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The final interesting trick is that the line number might have the special <strong>0xFEEFEE</strong> value. It means that the line is hidden. I have seen it for methods generated by the C# compiler such as <strong>MoveNext</strong> for async state machines or anonymous methods:</p>
+<p><img loading="lazy" src="/posts/2026-02-11_how-to-support-net/1_ZBXLm1oWWKp4pacMcX3g5Q.png"></p>
+<p>The source code is available from <a href="https://github.com/chrisnas/DumpManagedMethodInfoFromSymbols">my Github repository</a>.</p>
+<p>Happy coding!</p>
+<h2 id="references">References<a hidden class="anchor" aria-hidden="true" href="#references">#</a></h2>
+<ul>
+<li><a href="https://github.com/microsoft/microsoft-pdb/tree/master">Archived Microsoft-pdb repository</a></li>
+<li><a href="/posts/2025-12-08_how-to-dump-function/">DIA implementation article</a></li>
+<li><a href="/posts/2026-01-16_but-where-is-my/">DbgHelp implementation article</a></li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/pdb/">PDB</a></li>
+      <li><a href="http://localhost:1313/tags/dbghelp/">DbgHelp</a></li>
+      <li><a href="http://localhost:1313/tags/clrmd/">ClrMD</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="next" href="http://localhost:1313/posts/2026-01-16_but-where-is-my/">
+    <span class="title">Next »</span>
+    <br>
+    <span>But where is my method code? DbgHelp comes to the rescue</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>How to expose your custom counters in .NET Core | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content=".NET, GC, debugging, performance, diagnostics, Cursor, HTTP">
+<meta name="description" content="This post shows how to code your own counters: you’ll get the count and duration of ASP.NET requests processed with(out) GC as example.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2019-10-17_how-to-expose-your/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2019-10-17_how-to-expose-your/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      How to expose your custom counters in .NET Core
+    </h1>
+    <div class="post-description">
+      This post shows how to code your own counters: you’ll get the count and duration of ASP.NET requests processed with(out) GC as example.
+    </div>
+    <div class="post-meta"><span title='2019-10-17 12:42:17.982 +0000 UTC'>October 17, 2019</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2019-10-17_how-to-expose-your/1_M-GjqpcH8BL4oG02sk3sEg.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#use-an-eventsource-luke" aria-label="Use an EventSource Luke!">Use an EventSource Luke!</a></li>
+                <li>
+                    <a href="#pick-the-right-counterclass" aria-label="Pick the right Counter class">Pick the right Counter class</a></li>
+                <li>
+                    <a href="#how-to-get-these-custom-counters" aria-label="How to get these custom counters?">How to get these custom counters?</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p>This post of the series explains how to implement your own counters.</p>
+<p>Part 1: <a href="http://labs.criteo.com/2018/06/replace-net-performance-counters-by-clr-event-tracing">Replace .NET performance counters by CLR event tracing</a>.</p>
+<p>Part 2: <a href="http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/">Grab ETW Session, Providers and Events</a>.</p>
+<p>Part 3: <a href="http://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/">CLR Threading events with TraceEvent</a>.</p>
+<p>Part 4: <a href="/posts/2018-12-15_spying-on-net-garbage/">Spying on .NET Garbage Collector with TraceEvent</a>.</p>
+<p>Part 5: <a href="/posts/2019-02-12_building-your-own-java/">Building your own Java GC logs in .NET</a></p>
+<p>Part 6: <a href="/posts/2019-05-28_spying-on-net-garbage/">Spying on .NET Core Garbage Collector with .NET Core EventPipes</a></p>
+<p>Part 7: <a href="/posts/2019-07-23_net-core-counters-internals/">.NET Core Counters internals: how to integrate counters in your monitoring pipeline</a></p>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>The** EventPipe** counters are the .NET Core replacement for Windows performance counters. In the <a href="/posts/2019-07-23_net-core-counters-internals/">previous post</a>, I’ve explained how to listen to CLR event pipes to get the counter’s value over time both on Windows and Linux. This post shows you how easy it is to provide your counters via the same infrastructure.</p>
+<p>The example I’m using is based on a real-world case we had to investigate at Criteo. We needed to correlate request duration with garbage collections, so we decided to add new metrics to our testing dashboard: number and duration of requests but split between those processed without being interrupted by a GC and the others.</p>
+<p>For the sake of the ASP.NET Core code example, a <a href="https://docs.microsoft.com/en-us/aspnet/core/fundamentals/middleware/write?WT.mc_id=DT-MVP-5003325?view=aspnetcore-3.0">dedicated middleware</a> is created: it simply measures the time spent to process a request and if the count of garbage collections has changed before and after the request is processed:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">RequestMetricsMiddleware</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">readonly</span> <span class="n">RequestDelegate</span> <span class="n">_next</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">RequestMetricsMiddleware</span><span class="p">(</span><span class="n">RequestDelegate</span> <span class="n">next</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_next</span> <span class="p">=</span> <span class="n">next</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kd">async</span> <span class="n">Task</span> <span class="n">InvokeAsync</span><span class="p">(</span><span class="n">HttpContext</span> <span class="n">context</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// get the count of GCs before processing the request</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">collectionCountBeforeProcessingTheRequest</span> <span class="p">=</span> <span class="n">GetCurrentCollectionCount</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">sw</span> <span class="p">=</span> <span class="n">Stopwatch</span><span class="p">.</span><span class="n">StartNew</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">try</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// Call the next delegate/middleware in the pipeline</span>
+</span></span><span class="line"><span class="cl">            <span class="k">await</span> <span class="n">_next</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">finally</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// compare the counter of GCs after processing the request</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// if the count changed, a garbage collection occurred during the processing </span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// and might have slowed it down and maybe reaching SLA limit: this could </span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// explain 9x-percentile in slow requests for example</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">GetCurrentCollectionCount</span><span class="p">()</span> <span class="p">-</span> <span class="n">collectionCountBeforeProcessingTheRequest</span> <span class="p">!=</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// update with collection metric</span>
+</span></span><span class="line"><span class="cl">               <span class="n">RequestCountersEventSource</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">AddRequestWithGcDuration</span><span class="p">(</span><span class="n">sw</span><span class="p">.</span><span class="n">ElapsedMilliseconds</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="k">else</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="c1">// update without collection metric</span>
+</span></span><span class="line"><span class="cl">                <span class="n">RequestCountersEventSource</span><span class="p">.</span><span class="n">Instance</span><span class="p">.</span><span class="n">AddRequestWithoutGcDuration</span><span class="p">(</span><span class="n">sw</span><span class="p">.</span><span class="n">ElapsedMilliseconds</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kt">int</span> <span class="n">GetCurrentCollectionCount</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">int</span> <span class="n">count</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">i</span> <span class="p">&lt;</span> <span class="n">GC</span><span class="p">.</span><span class="n">MaxGeneration</span><span class="p">;</span> <span class="n">i</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">count</span> <span class="p">+=</span> <span class="n">GC</span><span class="p">.</span><span class="n">CollectionCount</span><span class="p">(</span><span class="n">i</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">count</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The interesting part is in the <code>RequestCountersEventSource</code> implementation.</p>
+<h2 id="use-an-eventsource-luke">Use an EventSource Luke!<a hidden class="anchor" aria-hidden="true" href="#use-an-eventsource-luke">#</a></h2>
+<p>As explained in the previous post, an <code>EventSource</code> instance is used as the “server” part of the <strong>EventPipe</strong> communication channel. It exposes a name that is used to identify it, but more important to listen to it with <strong>dotnet-trace</strong>, <strong>dotnet-counters,</strong> or your own listener as the <em>provider</em> name.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="na">[EventSource(Name = RequestCountersEventSource.SourceName)]</span>
+</span></span><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">RequestCountersEventSource</span> <span class="p">:</span> <span class="n">EventSource</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// this name will be used as &#34;provider&#34; name with dotnet-counters</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// ex: dotnet-counters monitor -p &lt;pid&gt; Sample.RequestCounters</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">//</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">const</span> <span class="kt">string</span> <span class="n">SourceName</span> <span class="p">=</span> <span class="s">&#34;Sample.RequestCounters&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">RequestCountersEventSource</span><span class="p">()</span> 
+</span></span><span class="line"><span class="cl">        <span class="p">:</span> <span class="k">base</span><span class="p">(</span><span class="n">RequestCountersEventSource</span><span class="p">.</span><span class="n">SourceName</span><span class="p">,</span> <span class="n">EventSourceSettings</span><span class="p">.</span><span class="n">EtwSelfDescribingEventFormat</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// create the counters: they&#39;ll be bound to this event source + CounterGroup</span>
+</span></span><span class="line"><span class="cl">        <span class="n">CreateCounters</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>This name is exposed via an <code>EventSourceAttribute</code> that decorates your <code>EventSource</code>-derived class (you could also pass it to the constructor). The counters are created in the constructor through the <code>CreateCounters</code> helper.</p>
+<h2 id="pick-the-right-counterclass">Pick the right Counter class<a hidden class="anchor" aria-hidden="true" href="#pick-the-right-counterclass">#</a></h2>
+<p>Before looking at the implementation of the <code>CreateCounters</code> method, you need to understand what kind of counters are available for you. In the previous post, I mentioned that the CLR was using <em>Mean</em> (that provides mean, max, and min values over the update interval) and <em>Sum</em> (to increment a single value) kinds of counters. Note that dotnet-counter will only show the mean value for <em>Mean</em> counters.
+ 
+ In addition, the counters could either automatically poll the value from a callback (the method used by the CLR today), or your code could change a counter value by calling the <code>WriteMetric</code> method. The <code>EventCounter</code> class provides this helper and it does its best to compute the min/max/mean in <a href="https://github.com/dotnet/coreclr/blob/master/src/System.Private.CoreLib/shared/System/Diagnostics/Tracing/EventCounter.cs#L144">a lock-free way</a>.</p>
+<p><img loading="lazy" src="/posts/2019-10-17_how-to-expose-your/1_8EnLvreQ7iS5gVkXhF8vfw.png"></p>
+<p>The next question to answer is which one should you use.</p>
+<p>In the case of the request with(out) GC example, I want to expose different metrics:</p>
+<ul>
+<li><em>Request count</em>: a <code>PollingCounter</code> will be used in addition to an int field incremented when a request is received.</li>
+<li><em>Request count delta</em>: an <code>IncrementingCounter</code> associated with the same int value will provide the delta (i.e., number of requests processed during an interval)</li>
+<li><em>Request with GC and without GC counts</em>: two <code>PollingCounter</code> instances based on two int fields incremented when a request with (or without respectively) GC are processed.</li>
+<li><em>Duration of requests with and without GC</em>: two <code>EventCounter</code> instances updated when requests are processed.</li>
+</ul>
+<p>Here is the implementation of<code>CreateCounters</code>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">CreateCounters</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// the same request count can be used for two counters:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// - raw request counter that will always increase</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// - increment counter that will automatically compute the delta</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">//   between the current value and the value when the counter</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">//   was previously sent</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_requestCount</span> <span class="p">??=</span> <span class="k">new</span> <span class="n">PollingCounter</span><span class="p">(</span><span class="s">&#34;request-count&#34;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">()</span> <span class="p">=&gt;</span> <span class="n">_requestCountValue</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">DisplayName</span> <span class="p">=</span> <span class="s">&#34;Requests count&#34;</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_requestCountDelta</span> <span class="p">??=</span> <span class="k">new</span> <span class="n">IncrementingPollingCounter</span><span class="p">(</span><span class="s">&#34;request-count-delta&#34;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">()</span> <span class="p">=&gt;</span> <span class="n">_requestCountValue</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">DisplayName</span> <span class="p">=</span> <span class="s">&#34;New requests&#34;</span><span class="p">,</span> <span class="n">DisplayRateTimeScale</span> <span class="p">=</span> <span class="k">new</span> <span class="n">TimeSpan</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="m">0</span><span class="p">,</span> <span class="m">1</span><span class="p">)</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// split the request counts between those for which a GC occured or not </span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// during their processing</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_noGcRequestCount</span> <span class="p">??=</span> <span class="k">new</span> <span class="n">PollingCounter</span><span class="p">(</span><span class="s">&#34;no-gc-request-count&#34;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">()</span> <span class="p">=&gt;</span> <span class="n">_noGcRequestCountValue</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">DisplayName</span> <span class="p">=</span> <span class="s">&#34;Requests (processed without GC) count&#34;</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_withGcRequestCount</span> <span class="p">??=</span> <span class="k">new</span> <span class="n">PollingCounter</span><span class="p">(</span><span class="s">&#34;with-gc-request-count&#34;</span><span class="p">,</span> <span class="k">this</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="p">()</span> <span class="p">=&gt;</span> <span class="n">_withGcRequestsCountValue</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">DisplayName</span> <span class="p">=</span> <span class="s">&#34;Requests (processed during a GC) count&#34;</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// request duration counters (with or without GC happening during the processing)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_noGcRequestDuration</span> <span class="p">??=</span> <span class="k">new</span> <span class="n">EventCounter</span><span class="p">(</span><span class="s">&#34;no-gc-request-duration&#34;</span><span class="p">,</span> <span class="k">this</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">DisplayName</span> <span class="p">=</span> <span class="s">&#34;Requests (processed without GC) duration in milli-seconds&#34;</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">_withGcRequestDuration</span> <span class="p">??=</span> <span class="k">new</span> <span class="n">EventCounter</span><span class="p">(</span><span class="s">&#34;with-gc-request-duration&#34;</span><span class="p">,</span> <span class="k">this</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span> <span class="n">DisplayName</span> <span class="p">=</span> <span class="s">&#34;Requests (processed during a GC) duration in milli-seconds&#34;</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The request processing code of the ASP.NET Core middleware is relying on the following helper methods to update the counters:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">internal</span> <span class="k">void</span> <span class="n">AddRequestWithoutGcDuration</span><span class="p">(</span><span class="kt">long</span> <span class="n">elapsedMilliseconds</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">IncRequestCount</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Interlocked</span><span class="p">.</span><span class="n">Increment</span><span class="p">(</span><span class="k">ref</span> <span class="n">_noGcRequestCountValue</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// compute min/max/mean</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_noGcRequestDuration</span><span class="p">?.</span><span class="n">WriteMetric</span><span class="p">(</span><span class="n">elapsedMilliseconds</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">internal</span> <span class="k">void</span> <span class="n">AddRequestWithGcDuration</span><span class="p">(</span><span class="kt">long</span> <span class="n">elapsedMilliseconds</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">IncRequestCount</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Interlocked</span><span class="p">.</span><span class="n">Increment</span><span class="p">(</span><span class="k">ref</span> <span class="n">_withGcRequestsCountValue</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// compute min/max/mean</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_withGcRequestDuration</span><span class="p">?.</span><span class="n">WriteMetric</span><span class="p">(</span><span class="n">elapsedMilliseconds</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">IncRequestCount</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Interlocked</span><span class="p">.</span><span class="n">Increment</span><span class="p">(</span><span class="k">ref</span> <span class="n">_requestCountValue</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>And that’s it!</p>
+<h2 id="how-to-get-these-custom-counters">How to get these custom counters?<a hidden class="anchor" aria-hidden="true" href="#how-to-get-these-custom-counters">#</a></h2>
+<p>The controller of the ASP.NET Core sample application is triggering (or not) garbage collections based on the parameters passed via the url:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="na">[Route(&#34;api/[controller]</span><span class="s">&#34;)]
+</span></span></span><span class="line"><span class="cl"><span class="na">[ApiController]</span>
+</span></span><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">RequestController</span> <span class="p">:</span> <span class="n">ControllerBase</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// GET: api/Request/5</span>
+</span></span><span class="line"><span class="cl"><span class="na">    [HttpGet(&#34;{id}&#34;)]</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">string</span> <span class="n">Get</span><span class="p">(</span><span class="kt">int</span> <span class="n">id</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">id</span> <span class="p">==</span> <span class="p">-</span><span class="m">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="s">$&#34;pid = {Process.GetCurrentProcess().Id}&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">((</span><span class="n">id</span> <span class="p">&gt;=</span> <span class="m">0</span><span class="p">)</span> <span class="p">&amp;&amp;</span> <span class="p">(</span><span class="n">id</span> <span class="p">&lt;=</span> <span class="m">2</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">GC</span><span class="p">.</span><span class="n">Collect</span><span class="p">(</span><span class="n">id</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="s">$&#34;triggered GC {id}&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">id</span> <span class="p">&lt;=</span> <span class="m">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="c1">// trigger a given number of GCs up to 10</span>
+</span></span><span class="line"><span class="cl">            <span class="n">TriggerGCs</span><span class="p">(</span><span class="n">id</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span> <span class="s">$&#34;triggered {id} garbage collections&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="s">$&#34;value = {id}&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">void</span> <span class="n">TriggerGCs</span><span class="p">(</span><span class="kt">int</span> <span class="n">count</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">current</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">current</span> <span class="p">&lt;</span> <span class="n">count</span><span class="p">;</span> <span class="n">current</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">GC</span><span class="p">.</span><span class="n">Collect</span><span class="p">(</span><span class="m">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>As explained earlier, it is possible to see the counter values with <strong>dotnet-counters</strong> by using the event source name as a provider with the following command line:</p>
+<blockquote>
+<p>dotnet counters monitor -p <pid> <strong>Sample.RequestCounters</strong></p>
+</blockquote>
+<p>Then if you trigger a few requests with and without GC, you should see the numbers change:</p>
+<p><img loading="lazy" src="/posts/2019-10-17_how-to-expose-your/1_M-GjqpcH8BL4oG02sk3sEg.png"></p>
+<p>The code available on <a href="https://github.com/chrisnas/ClrEvents">Github</a> has been updated to provide the middleware and the event source classes that demonstrate how to expose custom .NET Core counters.</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2019-11-21_wsl-visual-studio-attaching/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>WSL &#43; Visual Studio = attaching/launching a Linux .NET Core application on my Window 10</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2019-07-23_net-core-counters-internals/">
+    <span class="title">Next »</span>
+    <br>
+    <span>.NET Core Counters internals: how to integrate counters in your monitoring pipeline</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

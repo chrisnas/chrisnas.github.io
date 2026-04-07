@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Debugging Friday — Hunting down race condition | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, GC, debugging, diagnostics, memory, HTTP">
+<meta name="description" content="Another .NET investigation of our Debugging team to learn how to leverage tracepoint, object naming or parallel stacks in Visual Studio">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2019-02-22_debugging-friday-hunting-down/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2019-02-22_debugging-friday-hunting-down/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Debugging Friday — Hunting down race condition
+    </h1>
+    <div class="post-description">
+      Another .NET investigation of our Debugging team to learn how to leverage tracepoint, object naming or parallel stacks in Visual Studio
+    </div>
+    <div class="post-meta"><span title='2019-02-22 09:25:50.903 +0000 UTC'>February 22, 2019</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2019-02-22_debugging-friday-hunting-down/1_AvVFp0WGFB-NC2mKMyhlEQ.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#still-notworking" aria-label="Still not working">Still not working</a></li>
+                <li>
+                    <a href="#navigating-memory-by-stackframe" aria-label="Navigating memory by stack frame">Navigating memory by stack frame</a></li>
+                <li>
+                    <a href="#race-condition-again" aria-label="Race condition… again">Race condition… again</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>At Criteo, CLR metrics are collected by a service that listens to ETW events (<a href="http://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/">see the related series</a>). On a few servers, the metrics stopped being collected and we had to fix the problem <a href="/posts/2018-11-13_get-process-name-challenge/">by manually polling new and dead processes</a>. After deploying the new version, the same scenario started to happen: on some servers, the metrics were no more collected.</p>
+<p>In an investigation, the first step is always trying to check the environment. In our case, on a server where the metrics collector is up and running, a dedicated ETW session should be created to listen to the CLR events.</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_BHlopgHd4ytq5YqbDWCdGQ.png"></p>
+<p>The name given to the session allows us to easily detect if the session is present or not. In the case of a faulted server, the session was not present.</p>
+<p>If you look at the code described in <a href="http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/">a previous post</a>, it is not easy to guess why the session would be stopped by the metrics collector:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="k">void</span> <span class="n">ListenToEtw</span><span class="p">(</span><span class="n">TraceEventSession</span> <span class="n">etwSession</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// this call is blocking... until ewtSession.Stop is called (done in Dispose)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">etwSession</span><span class="p">.</span><span class="n">Source</span><span class="p">.</span><span class="n">Process</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">finally</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">etwSession</span><span class="p">.</span><span class="n">Dispose</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>A <code>TraceEventSession</code> is created and passed to a dedicated thread to process the events until <code>Stop</code> is called at the end of the application.</p>
+<p>The second step of an investigation is trying to reproduce the issue in a controlled environment such as… my developer machine. I setup the Exception Settings of the debugger to stop on any managed exception:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_AVxIk96bk6njBTlCAhbwwA.png"></p>
+<p>That way, if something bad happens while I’m debugging the application, Visual Studio tells me exactly where the exception was thrown.</p>
+<p>After starting and stopping applications monitored by the metrics collector a few times, an exception was thrown in the code responsible for mapping the application id and the component in charge of storing the metrics of this process. When looking at the code, it seems that there was a “timing” conflict between the code in charge of detecting new and dead processes (in a timer) and the code receiving the events from ETW (in the dedicated thread described earlier). A CLR event was received after the corresponding process was detected as being dead. The net effect of the uncaught exception was fast: the TraceEvent session stopped its execution and the <code>Process</code> method returned. Nothing special visible outside of a debugger with the right exception settings. This is a great scenario to understand why swallowing all exceptions is not a good pattern…</p>
+<h2 id="still-notworking">Still not working<a hidden class="anchor" aria-hidden="true" href="#still-notworking">#</a></h2>
+<p>The next step is to fix the code to handle the dead process case, build it and test it. Unfortunately, the new metrics collector, from time to time, does not seem to receive any CLR event. Even worse, this time the ETW session is still here as shown by <strong>logman -ets</strong>. Going back inside the Visual Studio debugger, everything is working fine: the TraceEvent session is created, its <code>Process</code> method called and blocked in a dedicated thread and… the events are received! It means that I’m not able to reproduce the problem while running under debugger control. Maybe the problem could come from the code responsible to filter out events sent by unmonitored applications.</p>
+<p>So, I’m adding a Breakpoint in the method responsible for checking monitored process to ensure that there is no bug there (events could be received but skipped due to invalid process ID mapping for example):</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="kt">bool</span> <span class="n">IsMonitoredEvent</span><span class="p">(</span><span class="n">TraceEvent</span> <span class="n">traceEvent</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">isMonitored</span> <span class="p">=</span> <span class="n">traceEvent</span><span class="p">.</span><span class="n">ProcessID</span> <span class="p">==</span> <span class="n">_monitoredPid</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">isMonitored</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">NotifyProcessedEvent</span><span class="p">(</span><span class="n">traceEvent</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">isMonitored</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The breakpoint is hit and I’m able to validate that there is no problem in the mapping code</p>
+<p>I can even check that the events I’m expecting are all received by asking Visual Studio to trace the event name with a tracepoint when <code>isMonitored</code> is true:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_EQkz2rHq0AV_LxRdNcdWNw.png"></p>
+<p>And I get all expected events in the Output Window. If some events were missing, it could have explained that metrics based on events series (such as contention duration) were not computed.</p>
+<p>I’m now running the application outside of the debugger… and no event. Just to confirm that I’m not crazy, I decide to add traces in the source code:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_oTwaR081Da5AVDUM-KEuCQ.png"></p>
+<p>But how to get the output without an attached debugger? The trick is to start <a href="https://docs.microsoft.com/en-us/sysinternals/downloads/debugview?WT.mc_id=DT-MVP-5003325">SysInternals Debug View</a> and wait for the event names to appear: nothing. Even by moving the <code>Debug.WriteLine</code> call outside of the <code>if</code> block, no event is ever received, even from unmonitored processes.</p>
+<h2 id="navigating-memory-by-stackframe">Navigating memory by stack frame<a hidden class="anchor" aria-hidden="true" href="#navigating-memory-by-stackframe">#</a></h2>
+<p>Let’s summarize the investigation status:</p>
+<ul>
+<li>The metrics collector is working only when under the control of a debugger.</li>
+<li>If the debugger is attached after it is started, the events are not received.</li>
+</ul>
+<p>I don’t know why but this kind of weird behaviors is always happening at Criteo on a Friday. So let’s start a joined debugging session with <a href="https://twitter.com/KooKiz">Kevin</a>, <a href="https://twitter.com/jpbempel">Jean-Philippe</a> and <a href="https://twitter.com/GregoryLeocadie">Gregory</a>!</p>
+<p>To better understand what is the state of the metrics collector when the events are not received, the application is launched and the debugger is then attached to it. I open the <em>Parallel Stacks</em> panel and double-click the stack frame with a valuable context:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_AvVFp0WGFB-NC2mKMyhlEQ.png"></p>
+<p>In our case, it would be interesting to get a view on the state of the <code>ETWTraceEventSource</code> object used by TraceEvent to process the events. Even if you don’t have the source code, it is still possible for the debugger to get a view of the object used as implicit “this” pointer by the <code>ProcessOneFile</code> method. Summon the <em>Quick Watch</em> dialog (Shift-F9 with my old VC 6 keyboard shortcut) and type “this”</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_6NZx1wOEcPrl-Pwrgu5hAw.png"></p>
+<p>Based on own understanding of how the <code>ETWTraceEventSource</code> is working, we know that registered event handlers are associated to entries in its <code>templates</code> field.</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_lqQjFitiYmDkPF5YZ3h41w.png"></p>
+<p>Instead of the expected GC, thread pool, exception and contention events, only kernel related events are defined:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_5XGoThkcMl2Y9g-tDAZ9kQ.png"></p>
+<p>But breakpoints have been set and hit on the code that registers our own event handlers! Well… it was the case when we debugged the application from start. What if… the event source we are looking at now is not the one our code has registered its handlers to?</p>
+<p>Without the address of the object available like in C++, it is complicated to easily check if two references actually point to the same object in memory. However, it is still possible to associate a numeric ID to an object with <em>Make Object ID</em>:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_tnBH9jNGHP5l_edMokr0WA.png"></p>
+<p>And its ID <strong>{$1}</strong> is now visible after the type name:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_kt4s3zsCQFeNwu683WJNeQ.png"></p>
+<p>To compare with the <code>ETWTraceEventSource</code> object manipulated by our own source code, double-click the right frame in <em>Parallel Stack</em>:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_7XXfUT4DRHLUUPZVv2bBjA.png"></p>
+<p>In the <code>ListenToEtw</code> method, <code>this</code> refers to our <code>SessionManager</code> in which the <code>ClrTraceEventParser</code> property references the <code>ETWTraceEventSource</code> object we believe we initialized with the right event handlers:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_mrPFddjjiwTl9m-VvYJmyQ.png"></p>
+<p>And… this object does not have any ID: it should be <strong>{$1}</strong>.</p>
+<p>To confirm that we are not looking at the source object <strong>{$1}</strong> that TraceEvent uses to receive events, it is just a question of checking its <code>template</code> field:</p>
+<p><img loading="lazy" src="/posts/2019-02-22_debugging-friday-hunting-down/1_3Du9EQ7dQE8giEiqc19Keg.png"></p>
+<p>And here are the expected CLR events we are interested in!</p>
+<h2 id="race-condition-again">Race condition… again<a hidden class="anchor" aria-hidden="true" href="#race-condition-again">#</a></h2>
+<p>So now the question is: how is it possible to have two instances of a TraceEvent internal class?</p>
+<p>Here is the sequence of execution in our code:</p>
+<ul>
+<li>Thread 1 is creating a <code>TraceEventSession</code> object</li>
+<li>Thread 1 starts Thread 2</li>
+<li>Thread 1 accesses the <code>clrTraceEventParser</code> via <code>_currentSession?.Source.Clr</code></li>
+</ul>
+<p>and</p>
+<ul>
+<li>Thread 2 calls <code>etwSession.Source.Process()</code></li>
+</ul>
+<p>So the <code>Source</code> property getter could be called from two different threads. Unfortunately, <a href="https://github.com/Microsoft/perfview/blob/b19c4099ccf6b0037b12811f25c924a35af4a447/src/TraceEvent/TraceEventSession.cs#L1267">in the getter</a>, the source is lazily created in a non thread-safe way.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="n">ETWTraceEventSource</span> <span class="n">Source</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="k">get</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="k">if</span> <span class="p">(</span><span class="n">m_source</span> <span class="p">==</span> <span class="kc">null</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="p">{</span>
+</span></span><span class="line"><span class="cl">         <span class="p">...</span> <span class="c1">// long code </span>
+</span></span><span class="line"><span class="cl">         <span class="n">m_source</span> <span class="p">=</span> <span class="k">new</span> <span class="n">ETWTraceEventSource</span><span class="p">(</span><span class="n">SessionName</span><span class="p">,</span> <span class="n">TraceEventSourceType</span><span class="p">.</span><span class="n">Session</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="p">}</span>
+</span></span><span class="line"><span class="cl">      <span class="k">return</span> <span class="n">m_source</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>When both threads enter the getter, <code>m_source</code> could be null and in that case, two <code>ETWTraceEventSource</code> objects are created and returned. One is used by TraceEvent to listen to events and the other by our code to register handlers to events that will never be received.</p>
+<p>The fix is simply to force the initialization of the <code>Source</code> object in the first thread.</p>
+<p>It is now a good time to go back home… to take a well deserved vacation!</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2019-04-04_let-debug-the-core/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Let’s debug the Core CLR with WinDBG!</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2019-02-12_building-your-own-java/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Building your own Java-like GC logs in .NET</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

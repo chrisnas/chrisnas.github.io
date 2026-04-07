@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Memory Anti-Patterns in C# | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, GC, performance, memory, Cursor">
+<meta name="description" content="In the context of aiming for a clean code base at Criteo, Christophe gathered C# anti-patterns we’d like to share with you!">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2021-07-01_memory-anti-patterns-in/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2021-07-01_memory-anti-patterns-in/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Memory Anti-Patterns in C#
+    </h1>
+    <div class="post-description">
+      In the context of aiming for a clean code base at Criteo, Christophe gathered C# anti-patterns we’d like to share with you!
+    </div>
+    <div class="post-meta"><span title='2021-07-01 13:56:00.734 +0000 UTC'>July 1, 2021</span>&nbsp;·&nbsp;<span>14 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2021-07-01_memory-anti-patterns-in/1_IC8UKl9GdNwj-CzbTLaoXg.jpeg" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#finalizer-and-idisposable-usage" aria-label="Finalizer and IDisposable usage">Finalizer and IDisposable usage</a></li>
+                <li>
+                    <a href="#provide-list-capacity-whenpossible" aria-label="Provide list capacity when possible">Provide list capacity when possible</a></li>
+                <li>
+                    <a href="#prefer-stringbuilder-to--for-string-concatenation" aria-label="Prefer StringBuilder to &#43;/&#43;= for string concatenation">Prefer StringBuilder to +/+= for string concatenation</a></li>
+                <li>
+                    <a href="#caching-strings-and-interning" aria-label="Caching strings and interning">Caching strings and interning</a></li>
+                <li>
+                    <a href="#dont-recreate-objects" aria-label="Don’t (re)create objects">Don’t (re)create objects</a></li>
+                <li>
+                    <a href="#best-practices-withlinq" aria-label="Best practices with LINQ">Best practices with LINQ</a></li>
+                <li>
+                    <a href="#prefer-ienumerable-toilist" aria-label="Prefer IEnumerable to IList">Prefer IEnumerable to IList</a></li>
+                <li>
+                    <a href="#firstordefault-and-any-are-your-friends-but-might-not-beneeded" aria-label="FirstOrDefault and Any are your friends… but might not be needed">FirstOrDefault and Any are your friends… but might not be needed</a></li>
+                <li>
+                    <a href="#avoid-unnecessary-tolisttoarray-calls" aria-label="Avoid unnecessary ToList()/ToArray() calls">Avoid unnecessary ToList()/ToArray() calls</a><ul>
+                        
+                <li>
+                    <a href="#prefer-ienumerableany-to-listexists" aria-label="Prefer IEnumerable&lt;&gt;.Any to List&lt;&gt;.Exists">Prefer IEnumerable&lt;&gt;.Any to List&lt;&gt;.Exists</a></li>
+                <li>
+                    <a href="#prefer-any-to-count-when-checking-for-emptiness" aria-label="Prefer Any to Count when checking for emptiness">Prefer Any to Count when checking for emptiness</a></li></ul>
+                </li>
+                <li>
+                    <a href="#order-in-extension-methods-mightmatter" aria-label="Order in extension methods might matter">Order in extension methods might matter</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p><img loading="lazy" src="/posts/2021-07-01_memory-anti-patterns-in/1_IC8UKl9GdNwj-CzbTLaoXg.jpeg"></p>
+<p>In the context of helping the teams at Criteo to clean up our code base, I gathered and documented a few C# anti-patterns similar to <a href="https://twitter.com/KooKiz">Kevin</a>’s publication about <a href="https://kevingosse.medium.com/performance-best-practices-in-c-b85a47bdd93a">performance code smell</a>. Here is an extract related to good/bad memory patterns.</p>
+<p>Even though the garbage collector is doing its works out of the control of the developers, the less allocations are done, the less the GC will impact an application. So the main goal is to avoid writing code that allocates unnecessary objects or references them too long.</p>
+<h2 id="finalizer-and-idisposable-usage">Finalizer and IDisposable usage<a hidden class="anchor" aria-hidden="true" href="#finalizer-and-idisposable-usage">#</a></h2>
+<p>Let’s start with a hidden way to referencing an object: implementing a “finalizer”. In C#, you write a method whose name is the name of the class prefixed by <strong>~</strong>. The compiler generates an override for the virtual <a href="https://docs.microsoft.com/en-us/dotnet/api/system.object.finalize?WT.mc_id=DT-MVP-5003325"><strong>Object.Finalize</strong></a> method. An instance of such a type is treated in a particular way by the Garbage Collector:</p>
+<ul>
+<li>after it is allocated, a reference is kept in a** Finalization** internal queue</li>
+<li>after a collection, if it is no more referenced, this reference is moved into another <strong>fReachable</strong> internal queue and treated as a root until a dedicated thread calls its finalizer code</li>
+</ul>
+<p>As Konrad Kokosa details in <a href="https://twitter.com/konradkokosa">one of his free GC Internals video</a>, instances of a type implementing a finalizer stay much longer in memory than needed; waiting for the next collection of the generation in which the previous collection left it (i.e. gen1 if it was in gen0 or even worse, gen2 if it was in gen1).</p>
+<p>So the first question people are usually asking is: do you really need to implement a finalizer? Most of the time, the answer should be no. The code of a finalizer is responsible for cleaning up <strong>ONLY</strong> resources that are <strong>NOT</strong> managed. It usually means “stuff” received from COM interop or P/Invoke calls to native functions such as handles, native memory or memory allocated via <a href="https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.marshal?WT.mc_id=DT-MVP-5003325">Marshal </a>helpers. If your class has <strong>IntPtr</strong> fields, it is a good sign that their lifetime finishes in a finalizer via <strong>Marsal</strong> helpers or P/Invoke cleanup calls. Look for <a href="https://docs.microsoft.com/en-us/dotnet/api/system.runtime.interopservices.safehandle?WT.mc_id=DT-MVP-5003325"><strong>SafeHandle</strong></a>-derived class if you need to manipulate kernel object handles instead of raw <strong>IntPtr</strong> and avoiding finalizers. So in 99.9% of the cases, you don’t need a finalizer.</p>
+<p>The second question is how implementing a finalizer relates to implementing <a href="https://docs.microsoft.com/en-us/dotnet/api/system.idisposable?WT.mc_id=DT-MVP-5003325"><strong>IDisposable</strong></a>? Unlike a finalizer, implementing the unique <strong>Dispose()</strong> method of <strong>IDisposable</strong> interface in a class means nothing for the Garbage Collector. So there is no side effect to extend the lifetime of its instances. This is only a way to allow the users of instances of this class to explicitly cleanup such an instance at a certain point in time instead of waiting for a garbage collection to be triggered.</p>
+<p>Let’s take an example: when you want to write to a file, behind the scene, .NET will call native APIs that operate on real file (via kernel object handles on Windows) with limited concurrent access (i.e. two processes can’t corrupt a file by writing different things at the same time — this is a very high level view of the situation but valid enough for this discussion). Another class would allow access to databases via a limited number of connections that should be released as soon as possible. In all these scenarios, as a user of these classes, you want to be able to “release” the resources used behind the scene as quickly as possible when you don’t need to access them anymore. This translates into the well known **using **pattern in C#:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">using</span> <span class="p">(</span><span class="kt">var</span> <span class="n">disposableInstance</span> <span class="p">=</span> <span class="k">new</span> <span class="n">MyDisposable</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">DoSomething</span><span class="p">(</span><span class="n">disposableInstance</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span> <span class="c1">// the instance will be cleanup and its resources released</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>that is transformed by the C# compiler into:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">disposableInstance</span> <span class="p">=</span> <span class="k">new</span> <span class="n">MyDisposable</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">try</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">DoSomething</span><span class="p">(</span><span class="n">disposableInstance</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">finally</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">disposableInstance</span><span class="p">?.</span><span class="n">Dispose</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>So when should you implement <strong>IDisposable</strong>? My answer is simple: when the class owns fields of classes that implement <strong>IDisposable</strong> <strong>and</strong> if it implements a finalizer (for the good reasons already explained). Don’t use <strong>IDisposable.Dispose</strong> for other reasons such as logging (like what we used to do in C++ destructor): prefer to implement another explicit interface dedicated to that purpose.</p>
+<p>In term of implementation, I have to say that I never understood why Microsoft decided to provide such a confusing implementation in its <a href="https://docs.microsoft.com/en-us/dotnet/standard/garbage-collection/implementing-dispose?WT.mc_id=DT-MVP-5003325">documentation</a>. You have to implement the following method to <em>“free” unmanaged and managed resources</em>. It should be called by both the finalizer and <strong>IDisposable.Dispose()</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">protected</span> <span class="k">virtual</span> <span class="k">void</span> <span class="n">Dispose</span><span class="p">(</span><span class="kt">bool</span> <span class="n">disposing</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// free unmanaged and managed resources</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>You also need to have a <strong>_disposed</strong> field to allow <strong>IDisposable.Dispose()</strong> to be called more than once without problem. In all methods and properties of the class, don’t forget to throw an <strong>ObjectDisposedException</strong> if <strong>_disposed</strong> is true to catch usage of already disposed objects.</p>
+<p>Ask a group of developers when <strong>disposing</strong> should be true or false: half will say when called from the finalizer and the other half from <strong>Dispose</strong> (and I’m not counting those who are not sure). Why giving the same name to the method that already exists in <strong>IDisposable</strong>? Why picking “disposing” as parameter name? I don’t think it could been possible to find a more confusing solution: too many “<em>dispose</em>” kills the pattern…</p>
+<p>Here is my own implementation that does exactly the same thing but with much less confusion:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">DisposableMe</span> <span class="p">:</span> <span class="n">IDisposable</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kt">bool</span> <span class="n">_disposed</span> <span class="p">=</span> <span class="kc">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// 1. field that implements IDisposable</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// 2. field that stores &#34;native resource&#34; (ex: IntPtr)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">~</span><span class="n">DisposableMe</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Cleanup</span><span class="p">(</span><span class="s">&#34;called from GC&#34;</span> <span class="p">!=</span> <span class="kc">null</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>           <span class="c1">// = true</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="k">void</span> <span class="n">Dispose</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Cleanup</span><span class="p">(</span><span class="s">&#34;not from GC&#34;</span> <span class="p">==</span> <span class="kc">null</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>           <span class="c1">// = false</span>
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>I also rename <strong>Dispose(bool disposing)</strong> into <strong>Cleanup(bool from GC)</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"> <span class="kd">private</span> <span class="k">void</span> <span class="n">Cleanup</span><span class="p">(</span><span class="kt">bool</span> <span class="n">fromGC</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">     <span class="k">if</span> <span class="p">(</span><span class="n">_disposed</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">         <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">     <span class="k">try</span>
+</span></span><span class="line"><span class="cl">     <span class="p">{</span>
+</span></span><span class="line"><span class="cl">         <span class="c1">// always clean up the NATIVE resources</span>
+</span></span><span class="line"><span class="cl">         <span class="k">if</span> <span class="p">(</span><span class="n">fromGC</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">             <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">         <span class="c1">// clean up managed resources ONLY if not called from GC</span>
+</span></span><span class="line"><span class="cl">     <span class="p">}</span>
+</span></span><span class="line"><span class="cl">     <span class="k">finally</span>
+</span></span><span class="line"><span class="cl">     <span class="p">{</span>
+</span></span><span class="line"><span class="cl">         <span class="n">_disposed</span> <span class="p">=</span> <span class="kc">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">         <span class="k">if</span> <span class="p">(!</span><span class="n">fromGC</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">             <span class="n">GC</span><span class="p">.</span><span class="n">SuppressFinalize</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">     <span class="p">}</span>
+</span></span><span class="line"><span class="cl"> <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The rules you have to keep in mind are simple:</p>
+<ul>
+<li>native resources (i.e. <strong>IntPtr</strong> fields) must always be cleaned up</li>
+<li>managed resources (i.e. <strong>IDisposable</strong> fields) should be disposed when called from <strong>Dispose</strong> (not from GC)</li>
+</ul>
+<p>The <strong>_disposed</strong> boolean field is used to cleanup resources only once. In this implementation, it is set to true even if an exception happens because I’m assuming that if it just happened, it will also happen if called another time.</p>
+<p>Last but not least, the call to <code>GC.SuppressFinalize(this)</code> simply tells the GC to remove the disposed object from the <strong>Finalization</strong> internal queue:</p>
+<ul>
+<li>it is only meaningful when called from <strong>Dispose</strong> (not from GC) to avoid extending its lifetime.</li>
+<li>it means that the finalizer will never be called. If it were, it would have called <strong>Cleanup</strong> that would have returned immediately because <strong>_disposed</strong> is true.</li>
+</ul>
+<p>The rest of the post describes typical anti-patterns. However, as usual with performance related topic, remember that the impact might not be noticeable if it does not run in a hot path. Always balance between readability/ease of maintenance/understanding and performance gain.</p>
+<h2 id="provide-list-capacity-whenpossible">Provide list capacity when possible<a hidden class="anchor" aria-hidden="true" href="#provide-list-capacity-whenpossible">#</a></h2>
+<p>It is recommended to provide a capacity when creating a <strong>List</strong> or a collection instance. The .NET implementation of such classes usually stores the values in an array that need to be resized when new elements are added: it means that:</p>
+<ul>
+<li>A new array is allocated</li>
+<li>The former values are copied to the new array</li>
+<li>The former array is no more referenced</li>
+</ul>
+<p>In the following example, the capacity of <strong>resultList</strong> is <strong>otherList.Count</strong></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">resultList</span> <span class="p">=</span> <span class="k">new</span> <span class="n">List</span><span class="p">&lt;...&gt;();</span>
+</span></span><span class="line"><span class="cl"><span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">item</span> <span class="k">in</span> <span class="n">otherList</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span> 
+</span></span><span class="line"><span class="cl">   <span class="n">resultList</span><span class="p">.</span><span class="n">Add</span><span class="p">(...);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="prefer-stringbuilder-to--for-string-concatenation">Prefer StringBuilder to +/+= for string concatenation<a hidden class="anchor" aria-hidden="true" href="#prefer-stringbuilder-to--for-string-concatenation">#</a></h2>
+<p>Creating temporary objects will increase the number of garbage collections and impact performances. Since the string class is immutable, each time you need to get an updated version of a string of characters, the .NET framework ends up creating a new string.</p>
+<p>For string concatenation, avoid using <strong>Concat</strong>, <strong>+</strong> or <strong>+=</strong>. This is especially important in loop or methods called very often. For example in the following code, a <strong>StringBuilder</strong> should be used:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">productIds</span> <span class="p">=</span> <span class="kt">string</span><span class="p">.</span><span class="n">Empty</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">while</span> <span class="p">(</span><span class="n">match</span><span class="p">.</span><span class="n">Success</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">productIds</span> <span class="p">+=</span> <span class="n">match</span><span class="p">.</span><span class="n">Groups</span><span class="p">[</span><span class="m">2</span><span class="p">].</span><span class="n">Value</span> <span class="p">+</span> <span class="s">&#34;\n&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">match</span> <span class="p">=</span> <span class="n">match</span><span class="p">.</span><span class="n">NextMatch</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Again in loops, avoid creating temporary string such as in the following code where <strong>SearchValue.ToUpper()</strong> do not change in the loop:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">SelectedColumn</span> <span class="p">==</span> <span class="n">Resources</span><span class="p">.</span><span class="n">Journaux</span><span class="p">.</span><span class="n">All</span> <span class="p">&amp;&amp;</span> <span class="p">!</span><span class="n">String</span><span class="p">.</span><span class="n">IsNullOrEmpty</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">source</span> <span class="p">=</span> <span class="n">model</span><span class="p">.</span><span class="n">DataSource</span><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">x</span> <span class="p">=&gt;</span> <span class="n">x</span><span class="p">.</span><span class="n">ItemId</span><span class="p">.</span><span class="n">Contains</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">||</span> <span class="n">x</span><span class="p">.</span><span class="n">ItemName</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">().</span><span class="n">Contains</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="p">||</span> <span class="n">x</span><span class="p">.</span><span class="n">ItemGroupName</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">().</span><span class="n">Contains</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="p">||</span> <span class="n">x</span><span class="p">.</span><span class="n">CountingGroupName</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">().</span><span class="n">Contains</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">()));</span>
+</span></span><span class="line"><span class="cl"> 
+</span></span><span class="line"><span class="cl"> 
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">SelectedColumn</span> <span class="p">==</span> <span class="n">Resources</span><span class="p">.</span><span class="n">Journaux</span><span class="p">.</span><span class="n">ItemNumber</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">source</span> <span class="p">=</span> <span class="n">model</span><span class="p">.</span><span class="n">DataSource</span><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">x</span> <span class="p">=&gt;</span> <span class="n">x</span><span class="p">.</span><span class="n">ItemId</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">().</span><span class="n">Contains</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">()));</span>
+</span></span><span class="line"><span class="cl"> 
+</span></span><span class="line"><span class="cl"> 
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">SelectedColumn</span> <span class="p">==</span> <span class="n">Resources</span><span class="p">.</span><span class="n">Journaux</span><span class="p">.</span><span class="n">ItemName</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">source</span> <span class="p">=</span> <span class="n">model</span><span class="p">.</span><span class="n">DataSource</span><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">x</span> <span class="p">=&gt;</span> <span class="n">x</span><span class="p">.</span><span class="n">ItemName</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">().</span><span class="n">Contains</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">()));</span>
+</span></span><span class="line"><span class="cl"> 
+</span></span><span class="line"><span class="cl"> 
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">SelectedColumn</span> <span class="p">==</span> <span class="n">Resources</span><span class="p">.</span><span class="n">Journaux</span><span class="p">.</span><span class="n">ItemGroup</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">source</span> <span class="p">=</span> <span class="n">model</span><span class="p">.</span><span class="n">DataSource</span><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">x</span> <span class="p">=&gt;</span> <span class="n">x</span><span class="p">.</span><span class="n">ItemGroupName</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">().</span><span class="n">Contains</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">()));</span>
+</span></span><span class="line"><span class="cl"> 
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">SelectedColumn</span> <span class="p">==</span> <span class="n">Resources</span><span class="p">.</span><span class="n">Journaux</span><span class="p">.</span><span class="n">CountingGroup</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">source</span> <span class="p">=</span> <span class="n">model</span><span class="p">.</span><span class="n">DataSource</span><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">x</span> <span class="p">=&gt;</span> <span class="n">x</span><span class="p">.</span><span class="n">CountingGroupName</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">().</span><span class="n">Contains</span><span class="p">(</span><span class="n">SearchValue</span><span class="p">.</span><span class="n">ToUpper</span><span class="p">()));</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The effect is even worse due to the <strong>Where()</strong> clause that create a new temporary upper string for each element of the sequence!</p>
+<p>This recommendation also applies to types that provides string-based direct access to characters such as in the following code:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(!</span><span class="n">uriBuilder</span><span class="p">.</span><span class="n">ToString</span><span class="p">().</span><span class="n">EndsWith</span><span class="p">(</span><span class="s">&#34;.&#34;</span><span class="p">,</span> <span class="kc">true</span><span class="p">,</span> <span class="n">invCulture</span><span class="p">))</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>where <strong>ToString()</strong> is not needed because it is possible to directly access the last character:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">uriBuilder</span><span class="p">[</span><span class="n">uriBuilder</span><span class="p">.</span><span class="n">Length</span> <span class="p">-</span> <span class="m">1</span><span class="p">]</span> <span class="p">!=</span> <span class="sc">&#39;.&#39;</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="caching-strings-and-interning">Caching strings and interning<a hidden class="anchor" aria-hidden="true" href="#caching-strings-and-interning">#</a></h2>
+<p>Prefer static cache of read-only objects to recreating them in each call such as in the following example:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">allCampaignStatuses</span> <span class="p">=</span> 
+</span></span><span class="line"><span class="cl">   <span class="p">((</span><span class="n">CampaignActivityStatus</span><span class="p">[])</span><span class="n">Enum</span><span class="p">.</span><span class="n">GetValues</span><span class="p">(</span><span class="k">typeof</span><span class="p">(</span><span class="n">CampaignActivityStatus</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">   <span class="p">.</span><span class="n">ToList</span><span class="p">();</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><em>(Replace by a static list since the enumeration elements won’t change)</em></p>
+<p>Last but not least, when string keys (with only a few different values) are used, you could “intern” them (i.e. ask the CLR to cache a value and always return the same reference). Read the corresponding <a href="https://docs.microsoft.com/en-us/dotnet/api/system.string.intern">Microsoft Docs</a> for more details.</p>
+<h2 id="dont-recreate-objects">Don’t (re)create objects<a hidden class="anchor" aria-hidden="true" href="#dont-recreate-objects">#</a></h2>
+<p>The first pattern to use is the static classes with static methods to avoid the creation of temporary objects just to call fields-less methods. It is also recommended to pre-compute read-only list instead of re-creating it each time a method gets called like in the following example :</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">allCampaignStatuses</span> <span class="p">=</span> 
+</span></span><span class="line"><span class="cl">   <span class="p">((</span><span class="n">CampaignActivityStatus</span><span class="p">[])</span><span class="n">Enum</span><span class="p">.</span><span class="n">GetValues</span><span class="p">(</span><span class="k">typeof</span><span class="p">(</span><span class="n">CampaignActivityStatus</span><span class="p">)))</span>
+</span></span><span class="line"><span class="cl">   <span class="p">.</span><span class="n">ToList</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// use allCampaignStatuses in the rest of the method</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>This list could have been computed once as a static field of the class because the enumeration will not change during the application lifetime.</p>
+<p>Avoid repeated calls and keep values in local variables when used in a loop; this is particularly easy to forget when dealing with string <strong>ToLower()</strong> and <strong>ToUpper()</strong>.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">found</span> <span class="p">=</span> <span class="n">elements</span><span class="p">.</span><span class="n">Any</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ToLower() is called in each test</span>
+</span></span><span class="line"><span class="cl"><span class="n">k</span> <span class="p">=&gt;</span> <span class="kt">string</span><span class="p">.</span><span class="n">Compare</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">       <span class="n">k</span><span class="p">.</span><span class="n">ToLower</span><span class="p">(),</span> 
+</span></span><span class="line"><span class="cl">       <span class="n">key</span><span class="p">.</span><span class="n">ToLower</span><span class="p">(),</span> 
+</span></span><span class="line"><span class="cl">       <span class="n">StringComparison</span><span class="p">.</span><span class="n">OrdinalIgnoreCase</span>
+</span></span><span class="line"><span class="cl">       <span class="p">)</span> <span class="p">==</span> <span class="m">0</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p><em>(a new temporary string will be created by key.ToLower() by each test)</em></p>
+<p>Prefer <strong>String.Compare(…, StringComparison.OrdinalIgnoreCase)</strong> to avoid calling <strong>ToLower()/ToUpper()</strong> just for string comparison such as in the following example:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">transactionIdAsString</span> <span class="p">!=</span> <span class="kc">null</span> <span class="p">&amp;&amp;</span> <span class="n">transactionIdAsString</span><span class="p">.</span><span class="n">ToLowerInvariant</span><span class="p">()</span> <span class="p">==</span> <span class="s">&#34;undefined&#34;</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>becomes:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">transactionIdAsString</span> <span class="p">!=</span> <span class="kc">null</span> <span class="p">&amp;&amp;</span> <span class="kt">string</span><span class="p">.</span><span class="n">Compare</span><span class="p">(</span><span class="n">transactionIdAsString</span><span class="p">,</span> <span class="s">&#34;undefined&#34;</span><span class="p">,</span> <span class="n">StringComparison</span><span class="p">.</span><span class="n">OrdinalIgnoreCase</span><span class="p">)</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="best-practices-withlinq">Best practices with LINQ<a hidden class="anchor" aria-hidden="true" href="#best-practices-withlinq">#</a></h2>
+<p>The LINQ syntax is used extensively all over the source code. However, several patterns are found very often and might impact overall performance.</p>
+<h2 id="prefer-ienumerable-toilist">Prefer IEnumerable<T> to IList<T><a hidden class="anchor" aria-hidden="true" href="#prefer-ienumerable-toilist">#</a></h2>
+<p>Most of the methods are iterating on sequences represented by <strong>IEnumerable<T></strong> either via <strong>foreach()</strong> or thanks to <strong>System.Linq.Enumerable</strong> extension methods. <strong>IList<T></strong> should be used only when sequence modification is required:</p>
+<p><img loading="lazy" src="/posts/2021-07-01_memory-anti-patterns-in/1_AEBYXkD87app7BdyPEK8qw.png"></p>
+<p>It is also recommended to use <strong>IEnumerable<T></strong> instead of <strong>IList<T></strong> as method parameters if there is no need to add/remove elements to the sequence. That way, the client code don’t have to use <strong>ToList()</strong> before calling the method. The same comment applies to return types that should be <strong>IEnumerable<T></strong> rather than <strong>IList<T></strong> because most of the time, the sequence will simply be iterated via a <strong>foreach</strong> statement.</p>
+<h2 id="firstordefault-and-any-are-your-friends-but-might-not-beneeded">FirstOrDefault and Any are your friends… but might not be needed<a hidden class="anchor" aria-hidden="true" href="#firstordefault-and-any-are-your-friends-but-might-not-beneeded">#</a></h2>
+<p>First, there is no need to call <strong>Any</strong> (or even worse <strong>ToList().Count &gt; 0</strong>) before <strong>foreach</strong> such as in the following code:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">sequence</span> <span class="p">!=</span> <span class="kc">null</span> <span class="p">&amp;&amp;</span> <span class="n">sequence</span><span class="p">.</span><span class="n">Any</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">item</span> <span class="k">in</span> <span class="n">sequence</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="avoid-unnecessary-tolisttoarray-calls">Avoid unnecessary ToList()/ToArray() calls<a hidden class="anchor" aria-hidden="true" href="#avoid-unnecessary-tolisttoarray-calls">#</a></h2>
+<p>LINQ queries are supposed to defer their execution until the corresponding sequence is iterated such as with a **foreach **statement. This is also the case when <strong>ToList()</strong> or <strong>ToArray()</strong> are called on such a query:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">resourceNames</span> <span class="p">=</span> <span class="n">resourceAssembly</span>
+</span></span><span class="line"><span class="cl"><span class="p">.</span><span class="n">GetManifestResourceNames</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">r</span> <span class="p">=&gt;</span> <span class="n">r</span><span class="p">.</span><span class="n">StartsWith</span><span class="p">(</span><span class="s">$&#34;{resourcePath}.i18n&#34;</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">.</span><span class="n">ToArray</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">resourceName</span> <span class="k">in</span> <span class="n">resourceNames</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <strong>ToList()</strong> method builds a <strong>List&lt;&gt;</strong> instance that contains all elements of the given sequence. It should be used carefully because the cost of creating a list from a large sequence of objects could be high both in term of memory and performance due to the implementation of element addition in <strong>List&lt;&gt;</strong>.</p>
+<p>The only recommended usages are:</p>
+<ul>
+<li>optimization sake to avoid executing the underlying query several times when it is expensive</li>
+<li>removing/adding elements from a sequence</li>
+<li>storing the result of a query execution in a class field</li>
+</ul>
+<p>However, most of the times, you don’t need to call <strong>ToList()</strong> to iterate on a <strong>IEnumerable<T></strong>. If you do so, you hurt the runtime execution both in term of memory consumption (because of the unneeded <strong>List<T></strong> that is just temporary) and in term of performance because the sequence gets iterated twice.</p>
+<p>The base of LINQ to Object is the I<strong>Enumerable</strong> interface used to iterate on a sequence of objects. All LINQ extension methods are taking <strong>IEnumerable</strong> instances as parameter in addition to <strong>foreach <strong>constructs. It is also not needed to call <strong>ToList()</strong> when an <strong>IEnumerable</strong> is expected (this is a good reason to prefer <strong>IEnumerable</strong> to <strong>IList</strong>/<strong>List</strong>/</strong>[]</strong> in method signatures)</p>
+<p>Some methods are calling <strong>ToList()</strong> before <strong>Where</strong> clauses are applied to an <strong>IEnumerable</strong> sequence: it is more efficient to stack the <strong>Where</strong> clauses and call <strong>ToList()</strong> at the end.</p>
+<p>Last but not least, it is not needed to call <strong>ToList()</strong> to get the number of elements in a sequence such as in the following code sample:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">productInfos</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Select</span><span class="p">(</span><span class="n">p</span> <span class="p">=&gt;</span> <span class="n">p</span><span class="p">.</span><span class="n">Split</span><span class="p">(</span><span class="n">DisplayProductInfoSeparator</span><span class="p">)[</span><span class="m">0</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Distinct</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">ToList</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Count</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>becomes:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">productInfos</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Select</span><span class="p">(</span><span class="n">p</span> <span class="p">=&gt;</span> <span class="n">p</span><span class="p">.</span><span class="n">Split</span><span class="p">(</span><span class="n">DisplayProductInfoSeparator</span><span class="p">)[</span><span class="m">0</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Distinct</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Count</span><span class="p">();</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="prefer-ienumerableany-to-listexists">Prefer IEnumerable&lt;&gt;.Any to List&lt;&gt;.Exists<a hidden class="anchor" aria-hidden="true" href="#prefer-ienumerableany-to-listexists">#</a></h3>
+<p>When manipulating <strong>IEnumerable</strong>, it is recommended to use <strong>Any</strong> instead of <strong>ToList().Exists()</strong> such as in the following code:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">sequence</span><span class="p">.</span><span class="n">ToList</span><span class="p">().</span><span class="n">Exists</span><span class="p">(</span><span class="err">…</span><span class="p">))</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>becomes:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">sequence</span><span class="p">.</span><span class="n">Any</span><span class="p">(...))</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h3 id="prefer-any-to-count-when-checking-for-emptiness">Prefer Any to Count when checking for emptiness<a hidden class="anchor" aria-hidden="true" href="#prefer-any-to-count-when-checking-for-emptiness">#</a></h3>
+<p>The **Any **extension methods should be preferred to count computation on <strong>IEnumerable</strong> because the iteration on the sequence stops as soon as the condition (if any) is fulfilled without allocating any temporary list:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">nonArchivedCampaigns</span> <span class="p">=</span> 
+</span></span><span class="line"><span class="cl">   <span class="n">campaigns</span>
+</span></span><span class="line"><span class="cl">   <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">c</span> <span class="p">=&gt;</span> <span class="n">c</span><span class="p">.</span><span class="n">Status</span> <span class="p">!=</span> <span class="n">CampaignActivityStatus</span><span class="p">.</span><span class="n">Archived</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">.</span><span class="n">ToList</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">nonArchivedCampaigns</span><span class="p">.</span><span class="n">Count</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>becomes:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(!</span><span class="n">campaigns</span><span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">c</span> <span class="p">=&gt;</span> <span class="n">c</span><span class="p">.</span><span class="n">Status</span> <span class="p">!=</span> <span class="n">CampaignActivityStatus</span><span class="p">.</span><span class="n">Archived</span><span class="p">).</span><span class="n">Any</span><span class="p">())</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that it is also valid to use <code>if (!campaigns.Any(filter))</code></p>
+<h2 id="order-in-extension-methods-mightmatter">Order in extension methods might matter<a hidden class="anchor" aria-hidden="true" href="#order-in-extension-methods-mightmatter">#</a></h2>
+<p>When operators are applied to sequences (i.e. <strong>IEnumerable</strong>), their order might have an impact on the performance of the resulting code. One important rule is to always filter first so the resulting sequences get smaller and smaller to iterate. This is why it is recommended to start a LINQ query by <strong>Where</strong> filters.</p>
+<p>With LINQ, the code you write to define a query might be misleading in term of execution. For example, what is the difference between:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">filteredElements</span> <span class="p">=</span> <span class="n">sequence</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">first</span> <span class="n">filter</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">second</span> <span class="n">filter</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>and:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">filteredElements</span> <span class="p">=</span> <span class="n">sequence</span>
+</span></span><span class="line"><span class="cl">  <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">first</span> <span class="n">filter</span> <span class="p">&amp;&amp;</span> <span class="n">second</span> <span class="n">filter</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>It depends on the query executor. For LINQ for Objects, it seems that there is no difference in term of the filters execution: the first and second filters will be executed the same number of times as shown by the following code:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"> <span class="kt">var</span> <span class="n">integers</span> <span class="p">=</span> <span class="n">Enumerable</span><span class="p">.</span><span class="n">Range</span><span class="p">(</span><span class="m">1</span><span class="p">,</span> <span class="m">6</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"> <span class="kt">var</span> <span class="n">set1</span> <span class="p">=</span> <span class="n">integers</span>
+</span></span><span class="line"><span class="cl"> <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">i</span> <span class="p">=&gt;</span> <span class="n">IsEven</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"> <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">i</span> <span class="p">=&gt;</span> <span class="n">IsMultipleOf3</span><span class="p">(</span><span class="n">i</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">current</span> <span class="k">in</span> <span class="n">set1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">     <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;--&gt; {current}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;--------------------------------&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> <span class="kt">var</span> <span class="n">set2</span> <span class="p">=</span> <span class="n">integers</span>
+</span></span><span class="line"><span class="cl"> <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">i</span> <span class="p">=&gt;</span> <span class="n">IsEven</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="p">&amp;&amp;</span> <span class="n">IsMultipleOf3</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"> <span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"> <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">current</span> <span class="k">in</span> <span class="n">set2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">     <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;--&gt; {current}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"> <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>When you run it, you get the exact same lines in the console:</p>
+<pre tabindex="0"><code>IsEven(1)
+IsEven(2)
+   IsMultipleOf3(2)
+IsEven(3)
+IsEven(4)
+   IsMultipleOf3(4)
+IsEven(5)
+IsEven(6)
+   IsMultipleOf3(6)
+--&gt; 6
+--------------------------------
+IsEven(1)
+IsEven(2)
+   IsMultipleOf3(2)
+IsEven(3)
+IsEven(4)
+   IsMultipleOf3(4)
+IsEven(5)
+IsEven(6)
+   IsMultipleOf3(6)
+--&gt; 6
+</code></pre><p>However, when you run it under Benchmark.NET,</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"> <span class="kd">private</span> <span class="kt">int</span><span class="p">[]</span> <span class="n">_myArray</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="na">
+</span></span></span><span class="line"><span class="cl"><span class="na"> [Params(10, 1000, 10000)]</span>
+</span></span><span class="line"><span class="cl"> <span class="kd">public</span> <span class="kt">int</span> <span class="n">Size</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="na">
+</span></span></span><span class="line"><span class="cl"><span class="na"> [GlobalSetup]</span>
+</span></span><span class="line"><span class="cl"> <span class="kd">public</span> <span class="k">void</span> <span class="n">Setup</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">     <span class="n">_myArray</span> <span class="p">=</span> <span class="k">new</span> <span class="kt">int</span><span class="p">[</span><span class="n">Size</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">     <span class="k">for</span> <span class="p">(</span><span class="kt">var</span> <span class="n">i</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span> <span class="n">i</span> <span class="p">&lt;</span> <span class="n">Size</span><span class="p">;</span> <span class="n">i</span><span class="p">++)</span>
+</span></span><span class="line"><span class="cl">         <span class="n">_myArray</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">=</span> <span class="n">i</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="na">
+</span></span></span><span class="line"><span class="cl"><span class="na"> [Benchmark(Baseline = true)]</span>
+</span></span><span class="line"><span class="cl"> <span class="kd">public</span> <span class="k">void</span> <span class="n">Original</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">var</span> <span class="k">set</span> <span class="p">=</span> <span class="n">_myArray</span>
+</span></span><span class="line"><span class="cl">         <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">i</span> <span class="p">=&gt;</span> <span class="n">IsEven</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">         <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">i</span> <span class="p">=&gt;</span> <span class="n">IsMultipleOf3</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">         <span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">     <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">current</span> <span class="k">in</span> <span class="k">set</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="p">{</span>
+</span></span><span class="line"><span class="cl">         <span class="n">i</span> <span class="p">=</span> <span class="n">current</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     <span class="p">}</span>
+</span></span><span class="line"><span class="cl"> <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="na">
+</span></span></span><span class="line"><span class="cl"><span class="na"> [Benchmark]</span>
+</span></span><span class="line"><span class="cl"> <span class="kd">public</span> <span class="k">void</span> <span class="n">Merged</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">     <span class="kt">var</span> <span class="k">set</span> <span class="p">=</span> <span class="n">_myArray</span>
+</span></span><span class="line"><span class="cl">         <span class="p">.</span><span class="n">Where</span><span class="p">(</span><span class="n">i</span> <span class="p">=&gt;</span> <span class="n">IsEven</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="p">&amp;&amp;</span> <span class="n">IsMultipleOf3</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">         <span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">     <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">current</span> <span class="k">in</span> <span class="k">set</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">     <span class="p">{</span>
+</span></span><span class="line"><span class="cl">         <span class="n">i</span> <span class="p">=</span> <span class="n">current</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">     <span class="p">}</span>
+</span></span><span class="line"><span class="cl"> <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>the results are significantly better for the single “merged” <strong>Where</strong> clause:</p>
+<p><img loading="lazy" src="/posts/2021-07-01_memory-anti-patterns-in/1_Q5xXZItYl0OuewsVW2O1gA.png"></p>
+<p>After looking at the implementation in the <a href="https://referencesource.microsoft.com/#System.Core/System/Linq/Enumerable.cs,44b8532e11187695">.NET Framework</a> with my colleague <a href="https://twitter.com/durot_jp">Jean-Philippe</a>, the additional cost seems to be related to the underlying <strong>IEnumerator</strong> corresponding to the first <strong>Where</strong>.</p>
+<p>Remember to never assume and always measure.</p>
+<hr>
+<p>Interesting in joining the team? Check out our latest job posts:</p>
+<p><a href="https://careers.criteo.com/job/341c287d-f045-46b9-b3ff-70f773ce6911/Senior-Site-Reliability-Engineer-PRE-Team-remote-flexibility-with-base-in-France"><strong>Senior Site Reliability Engineer - PRE Team (remote flexibility with base in France) job in Paris</strong>
+careers.criteo.com</a><a href="https://careers.criteo.com/job/341c287d-f045-46b9-b3ff-70f773ce6911/Senior-Site-Reliability-Engineer-PRE-Team-remote-flexibility-with-base-in-France"></a><a href="https://careers.criteo.com/job/38e2cc1c-718c-4d2d-ae62-4f5206192de7/Senior-Site-Reliability-Engineer-PRE-Performance-remote-flexibility-with-base-in-France"><strong>Senior Site Reliability Engineer - PRE - Performance (remote flexibility with base in France)</strong>
+careers.criteo.com</a><a href="https://careers.criteo.com/job/38e2cc1c-718c-4d2d-ae62-4f5206192de7/Senior-Site-Reliability-Engineer-PRE-Performance-remote-flexibility-with-base-in-France"></a></p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2021-07-20_profile-memory-allocations-wit/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Profile memory allocations with Perfview</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2021-03-02_how-to-ease-async/">
+    <span class="title">Next »</span>
+    <br>
+    <span>How to ease async callstacks analysis in Perfview</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

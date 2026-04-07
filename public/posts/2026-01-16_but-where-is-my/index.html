@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>But where is my method code? DbgHelp comes to the rescue | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, debugging, performance, memory, PDB, DbgHelp, Cursor">
+<meta name="description" content="This post show how DbgHelp could help you figure out the line and source code of each managed methods from a .pdb file">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2026-01-16_but-where-is-my/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2026-01-16_but-where-is-my/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      But where is my method code? DbgHelp comes to the rescue
+    </h1>
+    <div class="post-description">
+      This post show how DbgHelp could help you figure out the line and source code of each managed methods from a .pdb file
+    </div>
+    <div class="post-meta"><span title='2026-01-16 08:21:30.576 +0000 UTC'>January 16, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2026-01-16_but-where-is-my/1_KW21HTdZwwDwwKI69wlvUg.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#starting-withdbghelp" aria-label="Starting with DbgHelp">Starting with DbgHelp</a></li>
+                <li>
+                    <a href="#loading-apdbfile" aria-label="Loading a .pdb file">Loading a .pdb file</a></li>
+                <li>
+                    <a href="#enumerating-themethods" aria-label="Enumerating the methods">Enumerating the methods</a></li>
+                <li>
+                    <a href="#the-managed-side-of-thestory" aria-label="The managed side of the story">The managed side of the story</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>In our Datatog continuous .NET profiler implementation, we collect the call stack of a thread when something interesting happens such as an exception is thrown for example. In addition to the method name we would like to figure out at what line in which source code file this method is implemented.</p>
+<p>This information is usually stored in the <em>program database</em> (.pdb) file that is generated by the compiler when the assembly is generated from the source code. The type and the name of the method are stored in the metadata of the assembly itself but <a href="/posts/2021-09-06_dealing-with-modules-assemblie/">I already told this story before</a>. The .NET compilers support two formats of .pdb: the Portable format for .NET Core and the Windows format for .NET Framework.</p>
+<p>I’ve explained <a href="/posts/2025-12-08_how-to-dump-function/">how to use the DIA API</a> and it is now time to show how to leverage the <strong>DbgHelp</strong> API that is available on all Windows machines (even though <a href="https://learn.microsoft.com/en-us/windows/win32/debug/dbghelp-versions?WT.mc_id=DT-MVP-5003325">it is recommended</a> to always install the latest release via the Debugging Tools for Windows.</p>
+<p>This time, my goal is to extract from a Windows .pdb file the source code and line information for a given managed method. You can find the corresponding source code of this DumpLine tool in <a href="https://github.com/chrisnas/DumpManagedMethodInfoFromSymbols">my Github repository</a>.</p>
+<h2 id="starting-withdbghelp">Starting with DbgHelp<a hidden class="anchor" aria-hidden="true" href="#starting-withdbghelp">#</a></h2>
+<p>There are two major ways to get access to symbols with DbgHelp: either from a running process (i.e. to map the currently loaded .dll to their associated .pdb files) or from a tool that would explicitly load a .dll or a .pdb file.</p>
+<p>Before anything, you tell DbgHelp which options you want by calling <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-symsetoptions?WT.mc_id=DT-MVP-5003325">SymSetOptions</a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">DWORD</span> <span class="n">options</span> <span class="o">=</span> <span class="n">SymGetOptions</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">options</span> <span class="o">|=</span> <span class="n">SYMOPT_DEBUG</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">options</span> <span class="o">|=</span> <span class="n">SYMOPT_LOAD_LINES</span><span class="p">;</span>           <span class="c1">// Load line number information
+</span></span></span><span class="line"><span class="cl">    <span class="n">options</span> <span class="o">|=</span> <span class="n">SYMOPT_UNDNAME</span><span class="p">;</span>              <span class="c1">// Undecorate symbol names
+</span></span></span><span class="line"><span class="cl">    <span class="c1">//options |= SYMOPT_DEFERRED_LOADS;       // Defer symbol loading
+</span></span></span><span class="line"><span class="cl">    <span class="n">options</span> <span class="o">|=</span> <span class="n">SYMOPT_EXACT_SYMBOLS</span><span class="p">;</span>        <span class="c1">// Require exact symbol match
+</span></span></span><span class="line"><span class="cl">    <span class="n">options</span> <span class="o">|=</span> <span class="n">SYMOPT_FAIL_CRITICAL_ERRORS</span><span class="p">;</span> <span class="c1">// Don&#39;t show error dialogs
+</span></span></span><span class="line"><span class="cl">    <span class="n">SymSetOptions</span><span class="p">(</span><span class="n">options</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>This is where I ask that line number information should be collected.</p>
+<p>The next step is to call <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-syminitialize?WT.mc_id=DT-MVP-5003325">SymInitialize</a> to setup DbgHelp environment. The first parameter expects a process handle (returned by <a href="https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getcurrentprocess?WT.mc_id=DT-MVP-5003325">GetCurrentProcess</a> in my case). You could pass a path where to find the .pdb files for your dlls as a second parameter. In my case, since I will provide a .pdb file path, I don’t need it, and NULL will be passed. It means that, if needed, DbgHelp will use the current folder and the path set in _NT_SYMBOL_PATH and _NT_ALTERNATE_SYMBOL_PATH environment variables.</p>
+<p>The last boolean parameter tells DbgHelp if you want that <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-symloadmodule?WT.mc_id=DT-MVP-5003325">SymLoadModule64</a> to be called for each and every loaded .dll in the given process. Definitively not what I want so I’m passing FALSE.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">_hProcess</span> <span class="o">=</span> <span class="n">GetCurrentProcess</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">SymInitialize</span><span class="p">(</span><span class="n">_hProcess</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">FALSE</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_hProcess</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>At that point, I’m ready to load a .pdb file.</p>
+<h2 id="loading-apdbfile">Loading a .pdb file<a hidden class="anchor" aria-hidden="true" href="#loading-apdbfile">#</a></h2>
+<p>The API is straightforward: just call <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-symloadmoduleex?WT.mc_id=DT-MVP-5003325">SymLoadModuleEx</a> :</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">_baseAddress</span> <span class="o">=</span> <span class="n">SymLoadModuleEx</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_hProcess</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">NULL</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">pdbFilePath</span><span class="p">.</span><span class="n">c_str</span><span class="p">(),</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">NULL</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="mh">0x10000000</span><span class="p">,</span> <span class="c1">// arbitrary base address
+</span></span></span><span class="line"><span class="cl">        <span class="mi">0</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">NULL</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">    <span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">_baseAddress</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The important parameters are the process handle (same as for <strong>SymInitialize</strong>) and the path of the .pdb file. I’ve lost some time trying to understand why my code was not working due to a weird behavior of this function. You know that it succeeds when the returned address is not 0. Well… This is not 100% correct. If the path you provide does not exist, you won’t get 0 but the base address that you also provide. Even worth, when you call the functions I’ll detail later on, no error will happen but nothing will work as expected. So, I simply check that the file exists:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// BUG? : dbghelp does not fail if the .pdb file does not exist...
+</span></span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">GetFileAttributesA</span><span class="p">(</span><span class="n">pdbFilePath</span><span class="p">.</span><span class="n">c_str</span><span class="p">())</span> <span class="o">==</span> <span class="n">INVALID_FILE_ATTRIBUTES</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that it is possible to unload the symbols of a given loaded module by calling <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-symunloadmodule64?WT.mc_id=DT-MVP-5003325">SymUnloadModule</a> with the same process handle and its base address: this will reduce the memory consumption if you don’t need the symbols anymore.</p>
+<p>In case of deferred load symbols, it is needed to call <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-symgetmoduleinfo64?WT.mc_id=DT-MVP-5003325">SymGetModuleInfo64</a> before trying to access the symbols:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">IMAGEHLP_MODULE64</span> <span class="n">moduleInfo</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="n">moduleInfo</span><span class="p">.</span><span class="n">SizeOfStruct</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">IMAGEHLP_MODULE64</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">SymGetModuleInfo64</span><span class="p">(</span><span class="n">_hProcess</span><span class="p">,</span> <span class="n">_baseAddress</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">moduleInfo</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>In addition, this will fill up an <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/ns-dbghelp-imagehlp_module?WT.mc_id=DT-MVP-5003325">IMAGEHLP_MODULE64 structure</a> with possibly interesting details:</p>
+<p><img loading="lazy" src="/posts/2026-01-16_but-where-is-my/1_SUaczO2zsWrnmCvQ5Y30OA.png"></p>
+<p>The .pdb signature and age could be useful to build urls to communicate with symbol servers; but this is another story:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">_age</span> <span class="o">=</span> <span class="n">moduleInfo</span><span class="p">.</span><span class="n">PdbAge</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">GUID</span> <span class="n">guid</span> <span class="o">=</span> <span class="n">moduleInfo</span><span class="p">.</span><span class="n">PdbSig70</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">char</span> <span class="n">strGUID</span><span class="p">[</span><span class="mi">80</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sprintf_s</span><span class="p">(</span><span class="n">strGUID</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="s">&#34;%08x%04x%04x%02x%02x%02x%02x%02x%02x%02x%02x&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">guid</span><span class="p">.</span><span class="n">Data1</span><span class="p">,</span> <span class="n">guid</span><span class="p">.</span><span class="n">Data2</span><span class="p">,</span> <span class="n">guid</span><span class="p">.</span><span class="n">Data3</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">guid</span><span class="p">.</span><span class="n">Data4</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">guid</span><span class="p">.</span><span class="n">Data4</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">guid</span><span class="p">.</span><span class="n">Data4</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">guid</span><span class="p">.</span><span class="n">Data4</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="n">guid</span><span class="p">.</span><span class="n">Data4</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">guid</span><span class="p">.</span><span class="n">Data4</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="n">guid</span><span class="p">.</span><span class="n">Data4</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span> <span class="n">guid</span><span class="p">.</span><span class="n">Data4</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">_guid</span> <span class="o">=</span> <span class="n">strGUID</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>You also know if line numbers are available or not thanks to the <strong>LineNumbers</strong> field.</p>
+<p>Note that if you asked for deferred symbols option, you won’t get any interesting details:</p>
+<p><img loading="lazy" src="/posts/2026-01-16_but-where-is-my/1_X4Y-pHdVa77r58SrppUR3Q.png"></p>
+<p>Only the module name and path are provided but nothing else.</p>
+<h2 id="enumerating-themethods">Enumerating the methods<a hidden class="anchor" aria-hidden="true" href="#enumerating-themethods">#</a></h2>
+<p>It is now time to iterate on the symbols in the loaded .pdb thanks to <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-symenumsymbols?WT.mc_id=DT-MVP-5003325">SymEnumSymbols</a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">SymEnumSymbols</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_hProcess</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_baseAddress</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="s">&#34;*!*&#34;</span><span class="p">,</span>  <span class="c1">// Mask (all symbols)
+</span></span></span><span class="line"><span class="cl">            <span class="n">EnumMethodSymbolsCallback</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="k">this</span>    <span class="c1">// User context to store the methods in _methods instance field
+</span></span></span><span class="line"><span class="cl">    <span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="nb">false</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>In addition to the obvious parameters, this function expects a callback function that will be called for each symbol in the module specified by the process handle and the base address. Note that you can pass any context as the last parameter. In my case, the instance of my <strong>DbgHelpParser</strong> class is passed to be able to store the methods in a dedicated <strong>_methods</strong> field:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">MethodInfo</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">name</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint64_t</span> <span class="n">address</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">sourceFile</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">lineNumber</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="n">std</span><span class="o">::</span><span class="n">vector</span><span class="o">&lt;</span><span class="n">MethodInfo</span><span class="o">&gt;</span> <span class="n">_methods</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The “*!*” mask tells DbgHelp to look for symbols in all modules. This might sound counter intuitive, but the syntax is similar to what you find in WinDBG or Visual Studio: <strong><module>!<symbol></strong>. This could be useful if you load more than one .pdb.</p>
+<p>The job of the callback function is to detect the symbols you are interested in from the <a href="https://learn.microsoft.com/en-us/windows/win32/api/DbgHelp/ns-dbghelp-symbol_info?WT.mc_id=DT-MVP-5003325">SYMBOL_INFO structure</a> passed for each matching symbol:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">BOOL</span> <span class="n">CALLBACK</span> <span class="n">DbgHelpParser</span><span class="o">::</span><span class="n">EnumMethodSymbolsCallback</span><span class="p">(</span><span class="n">PSYMBOL_INFO</span> <span class="n">pSymInfo</span><span class="p">,</span> <span class="n">ULONG</span> <span class="n">SymbolSize</span><span class="p">,</span> <span class="n">PVOID</span> <span class="n">UserContext</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">DbgHelpParser</span><span class="o">*</span> <span class="n">parser</span> <span class="o">=</span> <span class="k">reinterpret_cast</span><span class="o">&lt;</span><span class="n">DbgHelpParser</span><span class="o">*&gt;</span><span class="p">(</span><span class="n">UserContext</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="p">(</span><span class="n">pSymInfo</span><span class="o">-&gt;</span><span class="n">Tag</span> <span class="o">==</span> <span class="n">SymTagFunction</span><span class="p">)</span> <span class="o">&amp;&amp;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">((</span><span class="n">pSymInfo</span><span class="o">-&gt;</span><span class="n">Flags</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">SYMFLAG_CLR_TOKEN</span> <span class="o">|</span> <span class="n">SYMFLAG_METADATA</span><span class="p">))</span> <span class="o">==</span> <span class="p">(</span><span class="n">SYMFLAG_CLR_TOKEN</span> <span class="o">|</span> <span class="n">SYMFLAG_METADATA</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <strong>Tag</strong> field contains a value from <a href="https://learn.microsoft.com/en-us/previous-versions/visualstudio/visual-studio-2010/bkedss5f(v=vs.100)?WT.mc_id=DT-MVP-5003325">SymTagEnum</a> but, for a managed .pdb file, you will only get <strong>SymTagFunction</strong>. Also, the <strong>Flags</strong> field should contain SYMFLAG_CLR_TOKEN and SYMFLAG_METADATA because we are only interested in managed methods.</p>
+<p>Next, you get the name, address and size from other fields before looking for the source file and line details by calling <a href="https://learn.microsoft.com/en-us/windows/win32/api/dbghelp/nf-dbghelp-symgetlinefromaddr64?WT.mc_id=DT-MVP-5003325">SymGetLineFromAddr64</a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">MethodInfo</span> <span class="n">info</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">info</span><span class="p">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">pSymInfo</span><span class="o">-&gt;</span><span class="n">Name</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">info</span><span class="p">.</span><span class="n">address</span> <span class="o">=</span> <span class="n">pSymInfo</span><span class="o">-&gt;</span><span class="n">Address</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">info</span><span class="p">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">pSymInfo</span><span class="o">-&gt;</span><span class="n">Size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// Try to get source file and line information
+</span></span></span><span class="line"><span class="cl">        <span class="n">IMAGEHLP_LINE64</span> <span class="n">line</span> <span class="o">=</span> <span class="p">{</span> <span class="mi">0</span> <span class="p">};</span>
+</span></span><span class="line"><span class="cl">        <span class="n">line</span><span class="p">.</span><span class="n">SizeOfStruct</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">IMAGEHLP_LINE64</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">DWORD</span> <span class="n">displacement</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">SymGetLineFromAddr64</span><span class="p">(</span><span class="n">parser</span><span class="o">-&gt;</span><span class="n">_hProcess</span><span class="p">,</span> <span class="n">pSymInfo</span><span class="o">-&gt;</span><span class="n">Address</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">displacement</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">line</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">info</span><span class="p">.</span><span class="n">sourceFile</span> <span class="o">=</span> <span class="n">line</span><span class="p">.</span><span class="n">FileName</span> <span class="o">?</span> <span class="n">line</span><span class="p">.</span><span class="nl">FileName</span> <span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">info</span><span class="p">.</span><span class="n">lineNumber</span> <span class="o">=</span> <span class="n">line</span><span class="p">.</span><span class="n">LineNumber</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">info</span><span class="p">.</span><span class="n">sourceFile</span> <span class="o">=</span> <span class="s">&#34;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">info</span><span class="p">.</span><span class="n">lineNumber</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">parser</span><span class="o">-&gt;</span><span class="n">_methods</span><span class="p">.</span><span class="n">push_back</span><span class="p">(</span><span class="n">info</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">TRUE</span><span class="p">;</span> <span class="c1">// Continue enumeration
+</span></span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The callback returns TRUE to continue the enumeration. You could return FALSE if you would look for specific symbols and wanted to speed up the processing.</p>
+<h2 id="the-managed-side-of-thestory">The managed side of the story<a hidden class="anchor" aria-hidden="true" href="#the-managed-side-of-thestory">#</a></h2>
+<p>When the tool is run on a managed assembly, you get the following kind of output:</p>
+<p><img loading="lazy" src="/posts/2026-01-16_but-where-is-my/1_KW21HTdZwwDwwKI69wlvUg.png"></p>
+<p>The name of the method does not match at all with the names in my test assembly! Why do all methods have this generic <strong>Method.#<number></strong> format?</p>
+<p>Well… the number corresponds to the RID of the corresponding method in the metadata of the assembly. Let’s have a look at what the <strong>MethodDef</strong> metadata table of this assembly looks like in ILSpy:</p>
+<p><img loading="lazy" src="/posts/2026-01-16_but-where-is-my/1_S_vIz4k8maK3smcE2MNdVw.png"></p>
+<p>The RID column corresponds to the number in the name in the tool output. So, the <strong>Method.#3</strong> is the <strong>get_Records</strong> property getter in PDBFormatReaderTest.cs:28. And this is exactly what I can see in the test source code:</p>
+<p><img loading="lazy" src="/posts/2026-01-16_but-where-is-my/1_WZWHUMS4jfWwzomHlrN9pw.png"></p>
+<p>You can also check that the lines look correct compared to what is listed by the tool:</p>
+<ul>
+<li><strong>FilePath</strong> getter at line 19</li>
+<li><strong>FilePath</strong> setter at line 20</li>
+<li><strong>Records</strong> getter at line 28</li>
+<li><strong>Records</strong> setter at line 29</li>
+</ul>
+<p>Feel free to look at the source code from <a href="https://github.com/chrisnas/DumpManagedMethodInfoFromSymbols">my Github repository</a>.</p>
+<p>DbgHelp provides many more services to look into symbols but that’s all for today!</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/pdb/">PDB</a></li>
+      <li><a href="http://localhost:1313/tags/dbghelp/">DbgHelp</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2026-02-11_how-to-support-net/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>How to support .NET Framework PDB format and source line with ISymUnmanagedReader</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2025-12-08_how-to-dump-function/">
+    <span class="title">Next »</span>
+    <br>
+    <span>How to dump function symbols from a .pdb file</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

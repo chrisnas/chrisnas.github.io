@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>[C#] Get-process-name challenge on a Friday afternoon | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, debugging, performance, diagnostics, HTTP">
+<meta name="description" content="Unexpected CPU consumption">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2018-11-13_get-process-name-challenge/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2018-11-13_get-process-name-challenge/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      [C#] Get-process-name challenge on a Friday afternoon
+    </h1>
+    <div class="post-description">
+      Unexpected CPU consumption
+    </div>
+    <div class="post-meta"><span title='2018-11-13 10:29:22.414 +0000 UTC'>November 13, 2018</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2018-11-13_get-process-name-challenge/1_CDn3N44B8tI1cCzL3G-Qbw.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#unexpected-cpu-consumption" aria-label="Unexpected CPU consumption">Unexpected CPU consumption</a></li>
+                <li>
+                    <a href="#measure-measure-andprofile" aria-label="Measure, measure… and profile">Measure, measure… and profile</a></li>
+                <li>
+                    <a href="#what-next" aria-label="What next?">What next?</a></li>
+                <li>
+                    <a href="#comparing-the-different-solutions" aria-label="Comparing the different solutions">Comparing the different solutions</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_CDn3N44B8tI1cCzL3G-Qbw.png"></p>
+<h2 id="unexpected-cpu-consumption">Unexpected CPU consumption<a hidden class="anchor" aria-hidden="true" href="#unexpected-cpu-consumption">#</a></h2>
+<p>At Criteo, CLR metrics are collected by a service that listens to ETW events (<a href="http://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/">see the related series</a>). This metrics collector is given the process name of applications to monitor. Since applications could crash, be stopped or restarted, the metrics collector must be able to detect such an event. The previous implementation was using ETW kernel events (TraceEvent <code>ProcessStart </code>and <code>ProcessStop </code>events from <code>ETWTraceEventSource.Kernel</code>). However, in rare cases, it seems that a new application start was not detected and therefore the metrics were not collected for it.</p>
+<p>An easy fix for this situation is to poll the list of running processes every second and detect which one is new or has left since the last time the list was polled. The implementation is straightforward: just call <code>Process.GetProcesses()</code> and get the process name from the <code>Process MainModule.FileName</code> property. After a few seconds testing this implementation on my laptop the fan started spinning: a quick look at Task Manager shows that the metrics collector is using ~10% CPU time!</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_D9NeWlaSCi8aDtJms3LujA.png"></p>
+<p>I’ve used these P/Invoked PSAPI functions 20 years ago but I don’t remember such an impact: for our monitoring service, we would like to keep the CPU impact below 1%.</p>
+<h2 id="measure-measure-andprofile">Measure, measure… and profile<a hidden class="anchor" aria-hidden="true" href="#measure-measure-andprofile">#</a></h2>
+<p>This was a good opportunity to start profiling the metrics collector with dotTrace on a Friday afternoon!</p>
+<p><code>NtProcessManager.GetModuleInfos</code> and <code>NtProcessManager.GetProcessIds</code> are at the methods top list of CPU consumption the worst offenders by far:</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_bXsVZkRy-W_33QDcKFXWCA.png"></p>
+<p>The callstack to reach <code>GetModuleInfos()</code> shows the following:</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_rDChwSQuaJdUPbaJ7XDanw.png"></p>
+<p>The <code>GetProcessPath()</code> method of the metrics collector is asking for the value of <code>Process.MainModule.FileName</code> property that ends up calling <code>GetModuleInfos</code>.</p>
+<p>And the callstack for the <code>MainModule </code>getter execution shows the following:</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_CDn3N44B8tI1cCzL3G-Qbw.png"></p>
+<p>This call stack looks weird for two reason:</p>
+<ul>
+<li>Since the <code>Process </code>object exists, why is it needed to call <code>OpenProcess </code>again to get the main module?</li>
+<li>Why would <code>OpenProcess </code>need to call <code>GetProcessIds </code>(i.e. get the list of running processes) since its id is already known?!</li>
+</ul>
+<p>Just take a look at the decompiled source code to get the answer:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="kd">static</span> <span class="n">SafeProcessHandle</span> <span class="n">OpenProcess</span><span class="p">(</span><span class="kt">int</span> <span class="n">processId</span><span class="p">,</span> <span class="kt">int</span> <span class="n">access</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">throwIfExited</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">  <span class="n">SafeProcessHandle</span> <span class="n">safeProcessHandle</span> <span class="p">=</span> <span class="n">NativeMethods</span><span class="p">.</span><span class="n">OpenProcess</span><span class="p">(</span><span class="n">access</span><span class="p">,</span> <span class="kc">false</span><span class="p">,</span> <span class="n">processId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="kt">int</span> <span class="n">lastWin32Error</span> <span class="p">=</span> <span class="n">Marshal</span><span class="p">.</span><span class="n">GetLastWin32Error</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">  <span class="k">if</span> <span class="p">(!</span><span class="n">safeProcessHandle</span><span class="p">.</span><span class="n">IsInvalid</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">safeProcessHandle</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">  
+</span></span><span class="line"><span class="cl">  <span class="c1">// error handling </span>
+</span></span><span class="line"><span class="cl">  <span class="k">if</span> <span class="p">(</span><span class="n">processId</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">throw</span> <span class="k">new</span> <span class="n">Win32Exception</span><span class="p">(</span><span class="m">5</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">  <span class="k">if</span> <span class="p">(</span><span class="n">ProcessManager</span><span class="p">.</span><span class="n">IsProcessRunning</span><span class="p">(</span><span class="n">processId</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="k">throw</span> <span class="k">new</span> <span class="n">Win32Exception</span><span class="p">(</span><span class="n">lastWin32Error</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">...</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>And <code>IsProcessRunning </code>calls <code>GetProcessIds</code>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="kd">static</span> <span class="kt">bool</span> <span class="n">IsProcessRunning</span><span class="p">(</span><span class="kt">int</span> <span class="n">processId</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="k">return</span> <span class="n">IsProcessRunning</span><span class="p">(</span><span class="n">processId</span><span class="p">,</span> <span class="n">GetProcessIds</span><span class="p">());</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>It does not appear in the callstack most probably because it was inlined by the JIT.</p>
+<p>So, the code of <code>ProcessManager.OpenProcess</code> calls the Win32 <code>OpenProcess</code> API to get… the handle of the process corresponding to the given id and desired access rights. From there, it is spending most of its CPU time dealing with error cases (i.e. when a process information cannot be accessed maybe due to access right limitation). We definitively don’t need all that in our case!</p>
+<h2 id="what-next">What next?<a hidden class="anchor" aria-hidden="true" href="#what-next">#</a></h2>
+<p>At that point of the investigation, my colleague <a href="https://twitter.com/KooKiz">Kevin</a> and I went to different directions. A few decades ago, I spent a lot of time digging into Windows internals using Win32 APIs and I remember that calling <code>PSAPI.GetModuleFilenameEx</code> with a pid and 0 as module handle should return the path name of the process (BTW, this is also what <code>GetModuleInfos </code>ends up calling but more on that later). So it should not be too complicated to P/Invoke this function from PSAPI.dll.</p>
+<p>At the beginning of .NET programming, the <a href="https://pinvoke.net/">https://pinvoke.net/</a> web site was very useful to figure out the right syntax for a lot of APIs if you did not want to read the 1579 pages of the <a href="https://www.amazon.com/NET-COM-Complete-Interoperability-Guide-ebook/dp/B003AYZB7U">Complete Interoperability Guide</a>! The description of <code>GetModuleFileNameEx </code>is <a href="https://pinvoke.net/default.aspx/psapi/GetModuleFileNameEx.html">available</a>, and even come with a code sample.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="na">[DllImport(&#34;psapi.dll&#34;, BestFitMapping = false, CharSet = CharSet.Auto, SetLastError = true)]</span>
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="kd">extern</span> <span class="kt">int</span> <span class="n">GetModuleFileNameEx</span><span class="p">(</span><span class="n">SafeProcessHandle</span> <span class="n">processHandle</span><span class="p">,</span> <span class="n">IntPtr</span> <span class="n">moduleHandle</span><span class="p">,</span> <span class="n">StringBuilder</span> <span class="n">baseName</span><span class="p">,</span> <span class="kt">int</span> <span class="n">size</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Note that marshaling strings should always be done with care: the Win32 API is not always consistent when a pointer to a C-like string is supposed to be filled up by a function. An additional parameter is given to state the size of the buffer in which the characters of the string will be copied. In some cases, this parameter counts the number of characters and in some others, it counts the number of bytes available in the buffer. I let you imagine what a nightmare it was when you had to deal with ANSI/UNICODE strings. In the <code>GetModuleFileNameEx </code>case, the size parameter takes <a href="https://docs.microsoft.com/en-us/windows/win32/api/psapi/nf-psapi-getmodulefilenameexw?WT.mc_id=DT-MVP-5003325">the number of characters</a>.</p>
+<p>If you take a look at the <code>NtProcessManager.GetModuleInfos</code> implementation, you find the following code in the implementation:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="n">StringBuilder</span> <span class="n">stringBuilder2</span> <span class="p">=</span> <span class="k">new</span> <span class="n">StringBuilder</span><span class="p">(</span><span class="m">1024</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">Microsoft</span><span class="p">.</span><span class="n">Win32</span><span class="p">.</span><span class="n">NativeMethods</span><span class="p">.</span><span class="n">GetModuleFileNameEx</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">safeProcessHandle</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">    <span class="k">new</span> <span class="n">HandleRef</span><span class="p">(</span><span class="kc">null</span><span class="p">,</span> <span class="n">handle</span><span class="p">),</span> 
+</span></span><span class="line"><span class="cl">    <span class="n">stringBuilder2</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">    <span class="n">stringBuilder2</span><span class="p">.</span><span class="n">Capacity</span> <span class="p">*</span> <span class="m">2</span>
+</span></span><span class="line"><span class="cl"> <span class="p">)</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Since the capacity of the <code>StringBuilder </code>is set to 1024, this code tells <code>GetModuleFileNameEx </code>that it is allowed to write up to 2048 characters. This looks like a bug… but hard to trigger with the <a href="https://docs.microsoft.com/en-us/windows/desktop/fileio/naming-a-file">usual 260 characters limitation for filenames</a>. However, if, one day, you decide to use the extended syntax with the “\?\” prefix syntax to create a looooong folder for your application, the bug will trigger an <code>AccessViolationException </code>beyond 1025 characters.</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_GWNlpyBn9ykY2J6JVTTKNw.png"></p>
+<p>Here is my safer implementation:</p>
+<pre tabindex="0"><code>private readonly StringBuilder _baseNameBuilder = new StringBuilder(1024);
+public static string GetProcessNameNative(Process p)
+{
+    _baseNameBuilder.Clear();
+    if (GetModuleFileNameEx(p.SafeHandle, IntPtr.Zero, _baseNameBuilder, _baseNameBuilder.Capacity) == 0)
+    {
+        _baseNameBuilder.Append(&#34;???&#34;);
+    }
+
+    return _baseNameBuilder.ToString();
+}
+</code></pre><p>When I presented Kevin my oldies but goodies solution, he told me that he found a smarter solution. While I was digging into my memories, he kept decompiling the implementation of the <code>Process </code>class and realized that it contains a <code>processInfo</code> private field:</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_ukveC2Y4V9Ls0ohF7Lk9Fw.png"></p>
+<p>And its internal class exposes a public field called… <code>processName</code>: exactly what we needed!</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_mAeJSykxpHEKbG25GTJSSQ.png"></p>
+<p>So I was ready to implement a reflection-based solution like:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="n">Type</span> <span class="n">_processInfoType</span> <span class="p">=</span> <span class="kc">null</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="n">FieldInfo</span> <span class="n">_processNameField</span> <span class="p">=</span> <span class="kc">null</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="kd">public</span> <span class="kd">static</span> <span class="kt">string</span> <span class="n">GetProcessNameByReflection</span><span class="p">(</span><span class="n">Process</span> <span class="n">p</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">processInfoField</span> <span class="p">=</span> <span class="k">typeof</span><span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">Diagnostics</span><span class="p">.</span><span class="n">Process</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">.</span><span class="n">GetField</span><span class="p">(</span><span class="s">&#34;processInfo&#34;</span><span class="p">,</span> <span class="n">BindingFlags</span><span class="p">.</span><span class="n">Instance</span> <span class="p">|</span> <span class="n">BindingFlags</span><span class="p">.</span><span class="n">NonPublic</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">processInfo</span> <span class="p">=</span> <span class="n">processInfoField</span><span class="p">.</span><span class="n">GetValue</span><span class="p">(</span><span class="n">p</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="p">(</span><span class="n">_processInfoType</span> <span class="p">==</span> <span class="kc">null</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_processInfoType</span> <span class="p">=</span> <span class="n">processInfo</span><span class="p">.</span><span class="n">GetType</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_processNameField</span> <span class="p">=</span> <span class="n">_processInfoType</span><span class="p">.</span><span class="n">GetField</span><span class="p">(</span><span class="s">&#34;processName&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">_processNameField</span><span class="p">.</span><span class="n">GetValue</span><span class="p">(</span><span class="n">processInfo</span><span class="p">).</span><span class="n">ToString</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>And Kevin was able to give me a definitively smarter solution based on compiled expressions:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="n">Func</span><span class="p">&lt;</span><span class="n">Process</span><span class="p">,</span> <span class="kt">string</span><span class="p">&gt;</span> <span class="n">GetProcessNameAccessor</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">param</span> <span class="p">=</span> <span class="n">Expression</span><span class="p">.</span><span class="n">Parameter</span><span class="p">(</span><span class="k">typeof</span><span class="p">(</span><span class="n">Process</span><span class="p">),</span> <span class="s">&#34;arg&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">processInfoMember</span> <span class="p">=</span> <span class="n">Expression</span><span class="p">.</span><span class="n">Field</span><span class="p">(</span><span class="n">param</span><span class="p">,</span> <span class="s">&#34;processInfo&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">processNameMember</span> <span class="p">=</span> <span class="n">Expression</span><span class="p">.</span><span class="n">Field</span><span class="p">(</span><span class="n">processInfoMember</span><span class="p">,</span> <span class="s">&#34;processName&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">lambda</span> <span class="p">=</span> <span class="n">Expression</span><span class="p">.</span><span class="n">Lambda</span><span class="p">(</span><span class="k">typeof</span><span class="p">(</span><span class="n">Func</span><span class="p">&lt;</span><span class="n">Process</span><span class="p">,</span> <span class="kt">string</span><span class="p">&gt;),</span> <span class="n">processNameMember</span><span class="p">,</span> <span class="n">param</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">(</span><span class="n">Func</span><span class="p">&lt;</span><span class="n">Process</span><span class="p">,</span> <span class="kt">string</span><span class="p">&gt;)</span><span class="n">lambda</span><span class="p">.</span><span class="n">Compile</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">static</span> <span class="k">readonly</span> <span class="n">Func</span><span class="p">&lt;</span><span class="n">Process</span><span class="p">,</span> <span class="kt">string</span><span class="p">&gt;</span> <span class="n">_getProcessNameFunc</span> <span class="p">=</span> <span class="n">GetProcessNameAccessor</span> <span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="kd">public</span> <span class="kt">string</span> <span class="n">GetProcessNameByExpression</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">_getProcessNameFunc</span><span class="p">(</span><span class="n">_process</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>However, when I tested them on my laptop, I got null reference exceptions while it was working fine on Kevin’s machine… There was a tiny difference between us: I was calling <code>Process.GetProcessById</code> while Kevin was using <code>Process.GetProcesses</code> to get the <code>Process</code> instance. It looks like the implementation of both methods is not doing the same initialization. This kind of things happen when you are trying to use undocumented implementation details… Also note that the .NET Core implementation is different (<a href="https://github.com/dotnet/corefx/blob/e34fa6ac5fcc49be5cb22f46119c6d99219483b6/src/System.Diagnostics.Process/src/System/Diagnostics/ProcessManager.Win32.cs">and does not contain the string length bug</a>).</p>
+<h2 id="comparing-the-different-solutions">Comparing the different solutions<a hidden class="anchor" aria-hidden="true" href="#comparing-the-different-solutions">#</a></h2>
+<p>So which solution should I pick for our metrics collector?</p>
+<p>It’s time to do some benchmarking thanks to <a href="https://github.com/dotnet/BenchmarkDotNet">BenchmarkDotNet </a>and the results give different order of magnitude!</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_yg7dKTQt9vBfkqix21GNlA.png"></p>
+<p>The winner is without contest based on expressions and the worst one is… the initial implementation that does not even fall into the error case during our tests!</p>
+<p>After updating the implementation with the compiled expression-based solution, the CPU usage of our metrics collector seems more reasonable:</p>
+<p><img loading="lazy" src="/posts/2018-11-13_get-process-name-challenge/1_oyIUliDIkvCo8S3hCzLTRA.png"></p>
+<p>It is now a good time to go back home… to write this article :^)</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2018-12-06_in-process-clr-event/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>In-process CLR event listeners with .NET Core 2.2</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

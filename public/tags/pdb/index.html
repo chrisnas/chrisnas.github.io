@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>PDB | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="">
+<meta name="description" content=".NET internals, GC, diagnostics and performance">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/tags/pdb/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" type="application/rss+xml" href="http://localhost:1313/tags/pdb/index.xml" title="rss">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/tags/pdb/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body class="list" id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main"> 
+<header class="page-header"><div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/tags/">Tags</a></div>
+  <h1>
+    PDB
+  </h1>
+</header>
+
+
+
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">How to support .NET Framework PDB format and source line with ISymUnmanagedReader
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2026-02-11_how-to-support-net/1_ZBXLm1oWWKp4pacMcX3g5Q.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> In my previous posts, I explained how to use DIA and DbgHelp to map a method to its line in source code. I forgot to mention that it was correct for .NET Core but not for the “old” .NET Framework Windows PDB format. Instead of encoding the method token in the name, the symbol file contains the name of the methods. So, how to do the mapping for .NET Framework assemblies? You will find the answer (plus some tricks) in this article.
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2026-02-11 09:16:11.72 +0000 UTC'>February 11, 2026</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to How to support .NET Framework PDB format and source line with ISymUnmanagedReader" href="http://localhost:1313/posts/2026-02-11_how-to-support-net/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">But where is my method code? DbgHelp comes to the rescue
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2026-01-16_but-where-is-my/1_KW21HTdZwwDwwKI69wlvUg.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> Introduction In our Datatog continuous .NET profiler implementation, we collect the call stack of a thread when something interesting happens such as an exception is thrown for example. In addition to the method name we would like to figure out at what line in which source code file this method is implemented.
+This information is usually stored in the program database (.pdb) file that is generated by the compiler when the assembly is generated from the source code. The type and the name of the method are stored in the metadata of the assembly itself but I already told this story before. The .NET compilers support two formats of .pdb: the Portable format for .NET Core and the Windows format for .NET Framework.
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2026-01-16 08:21:30.576 +0000 UTC'>January 16, 2026</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to But where is my method code? DbgHelp comes to the rescue" href="http://localhost:1313/posts/2026-01-16_but-where-is-my/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">How to dump function symbols from a .pdb file
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2025-12-08_how-to-dump-function/1_-GYj2ovADruJxXqRMF930A.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> During this R&amp;D week at Datadog, I wanted to implement a tool accepting a .pdb file and generate a .sym file listing functions symbols with their address, size, name with signature and if they are public or private. This post dig into the implementation details of using Microsoft Debug Interface Access (DIA) COM API to achieve these objectives. If you want to see what my vibe coding experience in Cursor was, read this other post instead.
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-12-08 10:12:20.786 +0000 UTC'>December 8, 2025</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to How to dump function symbols from a .pdb file" href="http://localhost:1313/posts/2025-12-08_how-to-dump-function/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Vibe coding a .pdb dumper or how I became a Product Manager
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2025-12-08_vibe-coding-pdb-dumper/1_sSP8l9m3GJ4PDA3FPRywww.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> During this R&amp;D week at Datadog, I wanted to implement a tool accepting a .pdb file and generate a .sym file listing functions symbols with their address, size, name with signature and if they are public or private. This post dig into the implementation details of using Microsoft Debug Interface Access (DIA) COM API to achieve these objectives. If you want to see what my vibe coding experience in Cursor was, read this other post instead.
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-12-08 10:12:16.86 +0000 UTC'>December 8, 2025</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to Vibe coding a .pdb dumper or how I became a Product Manager" href="http://localhost:1313/posts/2025-12-08_vibe-coding-pdb-dumper/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">How to monitor .NET applications startup
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2025-03-13_how-to-monitor-net/1_u9iVEg9L5Z_DVpn6jtcM2w.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> In the previous article, I presented what is needed (i.e. listen to WaitHandleWait events) to compute lock/wait durations and call stacks for Mutex, Semaphore, SemaphoreSlim, Manual/AutoResetEvent, ManualResetEventSlim, ReaderWriterLockSlim .NET synchronization constructs for a running process.
+However, since the application is already running, some JIT-related events are missing, and some frames of the call stacks cannot be symbolized. Also, it would be great to monitor an application’s startup to see if it could be faster.
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-03-13 10:50:55.81 +0000 UTC'>March 13, 2025</span>&nbsp;·&nbsp;<span>5 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to How to monitor .NET applications startup" href="http://localhost:1313/posts/2025-03-13_how-to-monitor-net/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Measuring the impact of locks and waits on latency in your .NET apps
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/1_OTO7qWO5aYvNXprhaPvRoA.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> Introduction In an old post, I detailed how to use ContentionStart and ContentionStop events to measure the lock contentions duration for a .NET application. In a .NET 9 pull request, a former Criteo’s colleague Grégoire Verdier has added new events to be notified when wait time similar to lock contention is happening for Mutex, Semaphore, Manual/AutoResetEvent. Read his post for more details about what he was trying to investigate.
+With asynchronous and multi-threaded algorithms, it is essential to detect unexpected wait/locks in our applications. This post shows you how to leverage these events to measure the duration of these waits and get the call stack when the wait started:
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2025-01-13 15:31:03.206 +0000 UTC'>January 13, 2025</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to Measuring the impact of locks and waits on latency in your .NET apps" href="http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Crap: the application is randomly crashing!
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2023-10-02_crap-the-application-is/1_ayVTO6s3e0jSFwVeGbl3zQ.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> Introduction When you have a call with a customer who explains to you that his application is crashing when your profiler is enabled, it is never a great experience. This post is listing which steps were followed to investigate such an issue I faced last week; from the basics up to the final in analysing memory dumps in WinDbg.
+Get as many setup details as possible The situation was the following:
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2023-10-02 09:02:26.016 +0000 UTC'>October 2, 2023</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to Crap: the application is randomly crashing!" href="http://localhost:1313/posts/2023-10-02_crap-the-application-is/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Troubleshooting CPU and exceptions issues with Datadog toolbox
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/1_uNg9te1UxHzFUzCCwJN3PQ.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> Introduction With the new 2.10 release of the Datadog .NET Tracer and Continuous Profiler available, it is time to update some investigation workflows I already introduced. New features have been added to help you diagnose performance issues in your .NET applications:
+Linux support! Code Hotspots: allow you to automatically navigate from lengthy spans and requests to profiles CPU profiling: pinpoint high CPU consuming methods Exceptions profiling: identify exceptions distributions Profile sequence: easily profile an application startup The goal of this post is to show you how all these features make your investigations easier. I would recommend reading the previous post; especially for the environment setup that I won’t repeat here.
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2022-06-09 16:09:27.113 +0000 UTC'>June 9, 2022</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to Troubleshooting CPU and exceptions issues with Datadog toolbox" href="http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Build your own .NET CPU profiler in C#
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2020-12-08_build-your-own-net/1_WIzDdkN_0nbUFiNnmKXe7A.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> The last series was describing how to get details about your .NET application allocation patterns in C#.
+Get a sampling of .NET application allocations A simple way to get the call stack Getting the call stack by hand It is now time to do the same but for the CPU consumption of your .NET applications.
+Thanks you Mr Windows Kernel! Under Windows, the kernel ETW provider allows you to get notified every milli-second with the call stack of all threads running on a core. Without any surprise, it is easy with TraceEvent to listen to these events. As explained in an old posts, you simply need to create a session, enable providers and listen to the right event.
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2020-12-08 10:27:37.71 +0000 UTC'>December 8, 2020</span>&nbsp;·&nbsp;<span>13 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to Build your own .NET CPU profiler in C#" href="http://localhost:1313/posts/2020-12-08_build-your-own-net/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Build your own .NET memory profiler in C# — call stacks (2/2–2)
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2020-06-19_build-your-own-net/1_v73Nx1IxWIEQ3NzDZF0rsQ.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> In the past two episodes of this series I have explained how to get a sampling of .NET application allocations and one way to get the call stack corresponding to the allocations; all with CLR events. In this last episode, I will detail how to transform addresses from the stack into methods name and possibly signature.
+From managed address to method signature In order to transform an address on the stack into a managed method name, you need to know where in memory (i.e. at which address) is stored the method JITted assembly code and what is its size:
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2020-06-19 09:32:16.666 +0000 UTC'>June 19, 2020</span>&nbsp;·&nbsp;<span>9 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to Build your own .NET memory profiler in C# — call stacks (2/2–2)" href="http://localhost:1313/posts/2020-06-19_build-your-own-net/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Build your own .NET memory profiler in C# — call stacks (2/2–1)
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2020-05-18_build-your-own-net/1_lYXf1qgB1ctzgi5_RKSDEw.jpeg" alt="">
+</figure>
+  <div class="entry-content">
+    <p> In the previous episode of this series, you have seen how to get a sampling of .NET application allocations thanks to the AllocationTick and GCSampleObjectAllocation(High/Low) CLR events. However, this is often not enough to investigate unexpected memory consumption: you would need to know which part of the code is triggering the allocations. This post explains how to get the call stack corresponding to the allocations, again with CLR events.
+Introduction If you look carefully at the payload of the TraceEvent object mapped by Microsoft TraceEvent library (not my fault if they have the same name) for each CLR event, you won’t see anything related to a call stack. However, in the TraceEvent sample 41, the following line looks promising:
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2020-05-18 12:07:01.254 +0000 UTC'>May 18, 2020</span>&nbsp;·&nbsp;<span>12 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to Build your own .NET memory profiler in C# — call stacks (2/2–1)" href="http://localhost:1313/posts/2020-05-18_build-your-own-net/"></a>
+</article>
+
+<article class="post-entry tag-entry">
+  <header class="entry-header">
+    <h2 class="entry-hint-parent">Let’s debug the Core CLR with WinDBG!
+    </h2>
+  </header> 
+<figure class="entry-cover">
+            <img loading="lazy" src="http://localhost:1313/posts/2019-04-04_let-debug-the-core/1_kqvC1tJsfN_lpaD6rclGjA.png" alt="">
+</figure>
+  <div class="entry-content">
+    <p> This post of the series shows how we debugged the Core CLR to figure out insane contention duration.
+Part 1: Replace .NET performance counters by CLR event tracing.
+Part 2: Grab ETW Session, Providers and Events.
+Part 3: CLR Threading events with TraceEvent.
+Part 4: Spying on .NET Garbage Collector with TraceEvent.
+Part 5: Building your own Java GC logs in .NET.
+Introduction Long before migrating our .NET applications to Linux, our first step was to build a monitoring pipeline based on LTTng instead of ETW on Windows. To achieve this goal, the open source TraceEvent Nuget package needed to be updated in order to listen to LTTng live session (only a file based implementation was provided by Microsoft; mostly to allow Perfview to be able to open traces taken on Linux machines). This was a huge development task that led sometimes to weird results. Among the metrics we wanted to monitor, the contention duration gave insane value such as thousands of minutes… per minute:
+...</p>
+  </div>
+  <footer class="entry-footer"><span title='2019-04-04 13:32:51.26 +0000 UTC'>April 4, 2019</span>&nbsp;·&nbsp;<span>10 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span></footer>
+  <a class="entry-link" aria-label="post link to Let’s debug the Core CLR with WinDBG!" href="http://localhost:1313/posts/2019-04-04_let-debug-the-core/"></a>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+</body>
+
+</html>

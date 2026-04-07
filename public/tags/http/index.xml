@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>HTTP on Welcome to Christophe Nasarre&#39;s Blog</title>
+    <link>http://localhost:1313/tags/http/</link>
+    <description>Recent content in HTTP on Welcome to Christophe Nasarre&#39;s Blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 13 Mar 2025 10:50:55 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/http/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>How to monitor .NET applications startup</title>
+      <link>http://localhost:1313/posts/2025-03-13_how-to-monitor-net/</link>
+      <pubDate>Thu, 13 Mar 2025 10:50:55 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2025-03-13_how-to-monitor-net/</guid>
+      <description>This episode explains how to monitor the startup of a .NET application and get insights about its lock and wait contentions duration</description>
+    </item>
+    <item>
+      <title>Measuring the impact of locks and waits on latency in your .NET apps</title>
+      <link>http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/</link>
+      <pubDate>Mon, 13 Jan 2025 15:31:03 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/</guid>
+      <description>Monitor mutex, semaphore and event wait duration</description>
+    </item>
+    <item>
+      <title>Monitor HTTP redirects to reduce unexpected latency</title>
+      <link>http://localhost:1313/posts/2024-12-13_monitor-http-redirects-to/</link>
+      <pubDate>Fri, 13 Dec 2024 14:21:41 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-12-13_monitor-http-redirects-to/</guid>
+      <description>This post details how redirection handling impacts dotnet-http tool implementation but also possibly your requests latency.</description>
+    </item>
+    <item>
+      <title>Implementing dotnet-http to monitor your HTTP requests</title>
+      <link>http://localhost:1313/posts/2024-11-13_implementing-dotnet-http-to/</link>
+      <pubDate>Wed, 13 Nov 2024 13:18:37 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-11-13_implementing-dotnet-http-to/</guid>
+      <description>This episode shows how to listen to HTTP related events and compute the duration of DNS, socket and security phases</description>
+    </item>
+    <item>
+      <title>Digging into the undocumented .NET events from the BCL</title>
+      <link>http://localhost:1313/posts/2024-10-13_digging-into-the-undocumented/</link>
+      <pubDate>Sun, 13 Oct 2024 12:12:37 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-10-13_digging-into-the-undocumented/</guid>
+      <description>This is the first episode of a new series describing how to listen to undocumented .NET events and focusing on monitoring HTTP requests</description>
+    </item>
+    <item>
+      <title>Trigger your GCs with dotnet-fullgc!</title>
+      <link>http://localhost:1313/posts/2024-05-22_trigger-your-gcs-with/</link>
+      <pubDate>Wed, 22 May 2024 18:03:17 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-05-22_trigger-your-gcs-with/</guid>
+      <description>This post explains how I wrote a CLI tool that triggers a GC in any .NET application</description>
+    </item>
+    <item>
+      <title>CLR events: go for the nettrace file format!</title>
+      <link>http://localhost:1313/posts/2022-10-23_clr-events-go-for/</link>
+      <pubDate>Sun, 23 Oct 2022 16:55:52 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2022-10-23_clr-events-go-for/</guid>
+      <description>Let’s see how to listen to CLR event through EventPipe in C&#43;&#43;. This episode explains how to start/stop a session with a running .NET app.</description>
+    </item>
+    <item>
+      <title>Digging into the CLR Diagnostics IPC Protocol in C#</title>
+      <link>http://localhost:1313/posts/2022-07-28_digging-into-the-clr/</link>
+      <pubDate>Thu, 28 Jul 2022 08:59:40 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2022-07-28_digging-into-the-clr/</guid>
+      <description>Learn how to directly connect to the .NET CLR and send diagnostics commands</description>
+    </item>
+    <item>
+      <title>Troubleshooting CPU and exceptions issues with Datadog toolbox</title>
+      <link>http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/</link>
+      <pubDate>Thu, 09 Jun 2022 16:09:27 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/</guid>
+      <description>Learn how to use Datadog CPU and exceptions profiling to troubleshoot well known Tess Ferrandez BuggyBits</description>
+    </item>
+    <item>
+      <title>Troubleshooting .NET performance issues with Datadog toolbox</title>
+      <link>http://localhost:1313/posts/2022-01-28_troubleshooting-net-performanc/</link>
+      <pubDate>Fri, 28 Jan 2022 12:55:40 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2022-01-28_troubleshooting-net-performanc/</guid>
+      <description>How to troubleshoot well known Tess Ferrandez BuggyBits application with the Datadog toolbox including the new Continuous Profiler</description>
+    </item>
+    <item>
+      <title>How to ease async callstacks analysis in Perfview</title>
+      <link>http://localhost:1313/posts/2021-03-02_how-to-ease-async/</link>
+      <pubDate>Tue, 02 Mar 2021 09:35:37 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2021-03-02_how-to-ease-async/</guid>
+      <description>Our new post describes how to easily profile with Perfview and more interestingly, how to get human readable async callstacks!</description>
+    </item>
+    <item>
+      <title>Understanding “reversed” callstacks in Visual Studio and Perfview with async/await code</title>
+      <link>http://localhost:1313/posts/2021-01-19_understanding-reversed-callsta/</link>
+      <pubDate>Tue, 19 Jan 2021 17:16:08 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2021-01-19_understanding-reversed-callsta/</guid>
+      <description>This post explains why profilers like Visual Studio could display “reversed” callstacks when dealing with async/await code.</description>
+    </item>
+    <item>
+      <title>Build your own .NET CPU profiler in C#</title>
+      <link>http://localhost:1313/posts/2020-12-08_build-your-own-net/</link>
+      <pubDate>Tue, 08 Dec 2020 10:27:37 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-12-08_build-your-own-net/</guid>
+      <description>After describing memory allocation profiling it is now time to dig into the CPU sample profiling in C#!</description>
+    </item>
+    <item>
+      <title>How to write your own commands in dotnet-dump (2/2)</title>
+      <link>http://localhost:1313/posts/2020-11-09_how-to-write-commands/</link>
+      <pubDate>Mon, 09 Nov 2020 16:27:38 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-11-09_how-to-write-commands/</guid>
+      <description>This post describes the different steps, tips and tricks to write your own commands for dotnet-dump</description>
+    </item>
+    <item>
+      <title>The .NET Core Journey at Criteo</title>
+      <link>http://localhost:1313/posts/2020-07-31_the-net-core-journey/</link>
+      <pubDate>Fri, 31 Jul 2020 15:55:50 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-07-31_the-net-core-journey/</guid>
+      <description>This post shows the challenges we faced during the migration to .NET Core on containerized Linux for our main application.</description>
+    </item>
+    <item>
+      <title>Build your own .NET memory profiler in C# — call stacks (2/2–2)</title>
+      <link>http://localhost:1313/posts/2020-06-19_build-your-own-net/</link>
+      <pubDate>Fri, 19 Jun 2020 09:32:16 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-06-19_build-your-own-net/</guid>
+      <description>In this last episode I detail how to transform addresses from the stack into methods name and signature.</description>
+    </item>
+    <item>
+      <title>Getting another view on thread stacks with ClrMD</title>
+      <link>http://localhost:1313/posts/2019-12-31_getting-another-view-on/</link>
+      <pubDate>Tue, 31 Dec 2019 10:52:00 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-12-31_getting-another-view-on/</guid>
+      <description>This post of the series details how to look into your threads stack with ClrMD to get method calls, parameters and local variables.</description>
+    </item>
+    <item>
+      <title>How to expose your custom counters in .NET Core</title>
+      <link>http://localhost:1313/posts/2019-10-17_how-to-expose-your/</link>
+      <pubDate>Thu, 17 Oct 2019 12:42:17 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-10-17_how-to-expose-your/</guid>
+      <description>This post shows how to code your own counters: you’ll get the count and duration of ASP.NET requests processed with(out) GC as example.</description>
+    </item>
+    <item>
+      <title>.NET Core Counters internals: how to integrate counters in your monitoring pipeline</title>
+      <link>http://localhost:1313/posts/2019-07-23_net-core-counters-internals/</link>
+      <pubDate>Tue, 23 Jul 2019 15:30:37 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-07-23_net-core-counters-internals/</guid>
+      <description>This post shows how to easily get .NET Core counters. Their internals are also detailed for a better understanding of usage/limits</description>
+    </item>
+    <item>
+      <title>Spying on .NET Garbage Collector with .NET Core EventPipes</title>
+      <link>http://localhost:1313/posts/2019-05-28_spying-on-net-garbage/</link>
+      <pubDate>Tue, 28 May 2019 07:38:15 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-05-28_spying-on-net-garbage/</guid>
+      <description>This post shows how to use .NET Core EventPipes to build Garbage Collector logs. The emitted raw CLR events are described in details.</description>
+    </item>
+    <item>
+      <title>Let’s debug the Core CLR with WinDBG!</title>
+      <link>http://localhost:1313/posts/2019-04-04_let-debug-the-core/</link>
+      <pubDate>Thu, 04 Apr 2019 13:32:51 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-04-04_let-debug-the-core/</guid>
+      <description>This post of the series shows how you could easily debug the Core CLR in a real world case of insane thread contention duration.</description>
+    </item>
+    <item>
+      <title>Debugging Friday — Hunting down race condition</title>
+      <link>http://localhost:1313/posts/2019-02-22_debugging-friday-hunting-down/</link>
+      <pubDate>Fri, 22 Feb 2019 09:25:50 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-02-22_debugging-friday-hunting-down/</guid>
+      <description>Another .NET investigation of our Debugging team to learn how to leverage tracepoint, object naming or parallel stacks in Visual Studio</description>
+    </item>
+    <item>
+      <title>Building your own Java-like GC logs in .NET</title>
+      <link>http://localhost:1313/posts/2019-02-12_building-your-own-java/</link>
+      <pubDate>Tue, 12 Feb 2019 10:11:39 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-02-12_building-your-own-java/</guid>
+      <description>This post of the series focuses on logging each GC details in a file and how to leverage it during investigations.</description>
+    </item>
+    <item>
+      <title>Fixing .NET middle-age crisis with Java ReferenceQueue and Cleaner</title>
+      <link>http://localhost:1313/posts/2019-01-16_fixing-net-middle-age/</link>
+      <pubDate>Wed, 16 Jan 2019 15:07:01 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-01-16_fixing-net-middle-age/</guid>
+      <description>See how to implement Java patterns in C# to solve the “middle-age crisis“ issue with .NET garbage collector</description>
+    </item>
+    <item>
+      <title>Spying on .NET Garbage Collector with TraceEvent</title>
+      <link>http://localhost:1313/posts/2018-12-15_spying-on-net-garbage/</link>
+      <pubDate>Sat, 15 Dec 2018 11:08:01 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2018-12-15_spying-on-net-garbage/</guid>
+      <description>This post of the series focuses on CLR events related to garbage collection in .NET.</description>
+    </item>
+    <item>
+      <title>In-process CLR event listeners with .NET Core 2.2</title>
+      <link>http://localhost:1313/posts/2018-12-06_in-process-clr-event/</link>
+      <pubDate>Thu, 06 Dec 2018 13:52:09 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2018-12-06_in-process-clr-event/</guid>
+      <description>Write your own EventListener class</description>
+    </item>
+    <item>
+      <title>[C#] Get-process-name challenge on a Friday afternoon</title>
+      <link>http://localhost:1313/posts/2018-11-13_get-process-name-challenge/</link>
+      <pubDate>Tue, 13 Nov 2018 10:29:22 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2018-11-13_get-process-name-challenge/</guid>
+      <description>Unexpected CPU consumption</description>
+    </item>
+  </channel>
+</rss>

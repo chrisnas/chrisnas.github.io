@@ -69,3 +69,185 @@ li.search-entry {
 .post-entry:last-of-type {
     border-bottom: none;
 }
+
+/* Hide posts via JS pagination */
+.hidden-post {
+    display: none !important;
+}
+
+/* ---- Home page two-column layout ---- */
+.home-layout {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+.home-posts {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Archive sidebar */
+.archive-sidebar {
+    width: 180px;
+    flex-shrink: 0;
+}
+
+.sidebar-sticky {
+    position: sticky;
+    top: 80px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+}
+
+.sidebar-title {
+    font-size: 0.95rem;
+    margin: 0 0 0.6rem 0;
+    color: var(--primary);
+}
+
+.archive-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.archive-link {
+    display: block;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.8rem;
+    color: var(--secondary);
+    text-decoration: none;
+    border-radius: 3px;
+    transition: background 0.15s;
+    cursor: pointer;
+}
+
+#js-pagination a[role="button"] {
+    cursor: pointer;
+}
+
+.archive-link:hover {
+    background: var(--border);
+    color: var(--primary);
+}
+
+.archive-link.active {
+    background: var(--border);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.archive-link sup {
+    font-size: 0.65rem;
+    opacity: 0.6;
+    margin-left: 2px;
+}
+
+.archive-link--all {
+    margin-bottom: 0.3rem;
+    font-weight: 500;
+}
+
+.archive-link--year {
+    font-weight: 500;
+    margin-top: 0.3rem;
+}
+
+.archive-link--month {
+    padding-left: 1rem;
+    font-size: 0.75rem;
+}
+
+.archive-months {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Page size selector bar */
+.page-size-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--secondary);
+}
+
+.page-size-bar select {
+    padding: 0.2rem 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--theme);
+    color: var(--primary);
+    font-size: 0.8rem;
+}
+
+#page-size-info {
+    opacity: 0.6;
+    font-size: 0.75rem;
+}
+
+/* JS pagination controls */
+#js-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+#js-pagination a,
+#js-pagination span.page-num {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    text-decoration: none;
+}
+
+#js-pagination a {
+    color: var(--secondary);
+}
+
+#js-pagination a:hover {
+    background: var(--border);
+    color: var(--primary);
+}
+
+#js-pagination span.page-num.current {
+    background: var(--primary);
+    color: var(--theme);
+    font-weight: 600;
+}
+
+/* Responsive: collapse sidebar on narrow screens */
+@media (max-width: 800px) {
+    .home-layout {
+        flex-direction: column;
+    }
+    .archive-sidebar {
+        width: 100%;
+    }
+    .sidebar-sticky {
+        position: static;
+        max-height: none;
+    }
+    .archive-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+    .archive-months {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+    .archive-link--month {
+        padding-left: 0.4rem;
+    }
+    .archive-year-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.2rem;
+    }
+}

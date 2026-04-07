@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>PDB on Welcome to Christophe Nasarre&#39;s Blog</title>
+    <link>http://localhost:1313/tags/pdb/</link>
+    <description>Recent content in PDB on Welcome to Christophe Nasarre&#39;s Blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Wed, 11 Feb 2026 09:16:11 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/pdb/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>How to support .NET Framework PDB format and source line with ISymUnmanagedReader</title>
+      <link>http://localhost:1313/posts/2026-02-11_how-to-support-net/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2026-02-11_how-to-support-net/</guid>
+      <description>After DIA and DbgHelp, time to dig into ISymUnmanagedReader to get its line in source code.</description>
+    </item>
+    <item>
+      <title>But where is my method code? DbgHelp comes to the rescue</title>
+      <link>http://localhost:1313/posts/2026-01-16_but-where-is-my/</link>
+      <pubDate>Fri, 16 Jan 2026 08:21:30 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2026-01-16_but-where-is-my/</guid>
+      <description>This post show how DbgHelp could help you figure out the line and source code of each managed methods from a .pdb file</description>
+    </item>
+    <item>
+      <title>How to dump function symbols from a .pdb file</title>
+      <link>http://localhost:1313/posts/2025-12-08_how-to-dump-function/</link>
+      <pubDate>Mon, 08 Dec 2025 10:12:20 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2025-12-08_how-to-dump-function/</guid>
+      <description>Detail how to write a tool that generates a .sym file listing functions symbols with their address, size and signature from a .pdb file</description>
+    </item>
+    <item>
+      <title>Vibe coding a .pdb dumper or how I became a Product Manager</title>
+      <link>http://localhost:1313/posts/2025-12-08_vibe-coding-pdb-dumper/</link>
+      <pubDate>Mon, 08 Dec 2025 10:12:16 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2025-12-08_vibe-coding-pdb-dumper/</guid>
+      <description>Follow me Vibe Coding in Cursor during my Datadog R&amp;amp;D Week to list function symbols with their signature and more</description>
+    </item>
+    <item>
+      <title>How to monitor .NET applications startup</title>
+      <link>http://localhost:1313/posts/2025-03-13_how-to-monitor-net/</link>
+      <pubDate>Thu, 13 Mar 2025 10:50:55 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2025-03-13_how-to-monitor-net/</guid>
+      <description>This episode explains how to monitor the startup of a .NET application and get insights about its lock and wait contentions duration</description>
+    </item>
+    <item>
+      <title>Measuring the impact of locks and waits on latency in your .NET apps</title>
+      <link>http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/</link>
+      <pubDate>Mon, 13 Jan 2025 15:31:03 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/</guid>
+      <description>Monitor mutex, semaphore and event wait duration</description>
+    </item>
+    <item>
+      <title>Crap: the application is randomly crashing!</title>
+      <link>http://localhost:1313/posts/2023-10-02_crap-the-application-is/</link>
+      <pubDate>Mon, 02 Oct 2023 09:02:26 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2023-10-02_crap-the-application-is/</guid>
+      <description>This post is listing which steps were followed to investigate a customer random crash issue I faced last week.</description>
+    </item>
+    <item>
+      <title>Troubleshooting CPU and exceptions issues with Datadog toolbox</title>
+      <link>http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/</link>
+      <pubDate>Thu, 09 Jun 2022 16:09:27 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/</guid>
+      <description>Learn how to use Datadog CPU and exceptions profiling to troubleshoot well known Tess Ferrandez BuggyBits</description>
+    </item>
+    <item>
+      <title>Build your own .NET CPU profiler in C#</title>
+      <link>http://localhost:1313/posts/2020-12-08_build-your-own-net/</link>
+      <pubDate>Tue, 08 Dec 2020 10:27:37 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-12-08_build-your-own-net/</guid>
+      <description>After describing memory allocation profiling it is now time to dig into the CPU sample profiling in C#!</description>
+    </item>
+    <item>
+      <title>Build your own .NET memory profiler in C# — call stacks (2/2–2)</title>
+      <link>http://localhost:1313/posts/2020-06-19_build-your-own-net/</link>
+      <pubDate>Fri, 19 Jun 2020 09:32:16 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-06-19_build-your-own-net/</guid>
+      <description>In this last episode I detail how to transform addresses from the stack into methods name and signature.</description>
+    </item>
+    <item>
+      <title>Build your own .NET memory profiler in C# — call stacks (2/2–1)</title>
+      <link>http://localhost:1313/posts/2020-05-18_build-your-own-net/</link>
+      <pubDate>Mon, 18 May 2020 12:07:01 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-05-18_build-your-own-net/</guid>
+      <description>This post explains how to get the call stack corresponding to the allocations with CLR events.</description>
+    </item>
+    <item>
+      <title>Let’s debug the Core CLR with WinDBG!</title>
+      <link>http://localhost:1313/posts/2019-04-04_let-debug-the-core/</link>
+      <pubDate>Thu, 04 Apr 2019 13:32:51 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-04-04_let-debug-the-core/</guid>
+      <description>This post of the series shows how you could easily debug the Core CLR in a real world case of insane thread contention duration.</description>
+    </item>
+  </channel>
+</rss>

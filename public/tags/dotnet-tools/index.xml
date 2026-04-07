@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Dotnet-Tools on Welcome to Christophe Nasarre&#39;s Blog</title>
+    <link>http://localhost:1313/tags/dotnet-tools/</link>
+    <description>Recent content in Dotnet-Tools on Welcome to Christophe Nasarre&#39;s Blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 13 Mar 2025 10:50:55 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/dotnet-tools/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>How to monitor .NET applications startup</title>
+      <link>http://localhost:1313/posts/2025-03-13_how-to-monitor-net/</link>
+      <pubDate>Thu, 13 Mar 2025 10:50:55 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2025-03-13_how-to-monitor-net/</guid>
+      <description>This episode explains how to monitor the startup of a .NET application and get insights about its lock and wait contentions duration</description>
+    </item>
+    <item>
+      <title>Measuring the impact of locks and waits on latency in your .NET apps</title>
+      <link>http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/</link>
+      <pubDate>Mon, 13 Jan 2025 15:31:03 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2025-01-13_measuring-the-impact-of/</guid>
+      <description>Monitor mutex, semaphore and event wait duration</description>
+    </item>
+    <item>
+      <title>Monitor HTTP redirects to reduce unexpected latency</title>
+      <link>http://localhost:1313/posts/2024-12-13_monitor-http-redirects-to/</link>
+      <pubDate>Fri, 13 Dec 2024 14:21:41 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-12-13_monitor-http-redirects-to/</guid>
+      <description>This post details how redirection handling impacts dotnet-http tool implementation but also possibly your requests latency.</description>
+    </item>
+    <item>
+      <title>Implementing dotnet-http to monitor your HTTP requests</title>
+      <link>http://localhost:1313/posts/2024-11-13_implementing-dotnet-http-to/</link>
+      <pubDate>Wed, 13 Nov 2024 13:18:37 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-11-13_implementing-dotnet-http-to/</guid>
+      <description>This episode shows how to listen to HTTP related events and compute the duration of DNS, socket and security phases</description>
+    </item>
+    <item>
+      <title>Unexpected usage of EventSource or how to test statistical results in CLR pull request</title>
+      <link>http://localhost:1313/posts/2024-09-13_unexpected-usage-of-eventsourc/</link>
+      <pubDate>Fri, 13 Sep 2024 14:25:30 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-09-13_unexpected-usage-of-eventsourc/</guid>
+      <description>Unexpected usage of EventSource</description>
+    </item>
+    <item>
+      <title>Trigger your GCs with dotnet-fullgc!</title>
+      <link>http://localhost:1313/posts/2024-05-22_trigger-your-gcs-with/</link>
+      <pubDate>Wed, 22 May 2024 18:03:17 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-05-22_trigger-your-gcs-with/</guid>
+      <description>This post explains how I wrote a CLI tool that triggers a GC in any .NET application</description>
+    </item>
+    <item>
+      <title>View your GCs statistics live with dotnet-gcstats!</title>
+      <link>http://localhost:1313/posts/2024-03-01_view-your-gcs-statistics/</link>
+      <pubDate>Fri, 01 Mar 2024 18:30:13 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2024-03-01_view-your-gcs-statistics/</guid>
+      <description>Discover how to look at the .NET GC statistics to better understand your garbage collections</description>
+    </item>
+    <item>
+      <title>CLR events: go for the nettrace file format!</title>
+      <link>http://localhost:1313/posts/2022-10-23_clr-events-go-for/</link>
+      <pubDate>Sun, 23 Oct 2022 16:55:52 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2022-10-23_clr-events-go-for/</guid>
+      <description>Let’s see how to listen to CLR event through EventPipe in C&#43;&#43;. This episode explains how to start/stop a session with a running .NET app.</description>
+    </item>
+    <item>
+      <title>Digging into the CLR Diagnostics IPC Protocol in C#</title>
+      <link>http://localhost:1313/posts/2022-07-28_digging-into-the-clr/</link>
+      <pubDate>Thu, 28 Jul 2022 08:59:40 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2022-07-28_digging-into-the-clr/</guid>
+      <description>Learn how to directly connect to the .NET CLR and send diagnostics commands</description>
+    </item>
+    <item>
+      <title>How to write your own commands in dotnet-dump (2/2)</title>
+      <link>http://localhost:1313/posts/2020-11-09_how-to-write-commands/</link>
+      <pubDate>Mon, 09 Nov 2020 16:27:38 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-11-09_how-to-write-commands/</guid>
+      <description>This post describes the different steps, tips and tricks to write your own commands for dotnet-dump</description>
+    </item>
+    <item>
+      <title>The .NET Core Journey at Criteo</title>
+      <link>http://localhost:1313/posts/2020-07-31_the-net-core-journey/</link>
+      <pubDate>Fri, 31 Jul 2020 15:55:50 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-07-31_the-net-core-journey/</guid>
+      <description>This post shows the challenges we faced during the migration to .NET Core on containerized Linux for our main application.</description>
+    </item>
+    <item>
+      <title>Build your own .NET memory profiler in C# — call stacks (2/2–1)</title>
+      <link>http://localhost:1313/posts/2020-05-18_build-your-own-net/</link>
+      <pubDate>Mon, 18 May 2020 12:07:01 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-05-18_build-your-own-net/</guid>
+      <description>This post explains how to get the call stack corresponding to the allocations with CLR events.</description>
+    </item>
+    <item>
+      <title>Build your own .NET memory profiler in C# — Allocations (1/2)</title>
+      <link>http://localhost:1313/posts/2020-04-18_build-your-own-net/</link>
+      <pubDate>Sat, 18 Apr 2020 09:48:53 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-04-18_build-your-own-net/</guid>
+      <description>This post explains how to collect allocation details by writing your own memory profiler in C#.</description>
+    </item>
+    <item>
+      <title>.NET Core Counters internals: how to integrate counters in your monitoring pipeline</title>
+      <link>http://localhost:1313/posts/2019-07-23_net-core-counters-internals/</link>
+      <pubDate>Tue, 23 Jul 2019 15:30:37 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-07-23_net-core-counters-internals/</guid>
+      <description>This post shows how to easily get .NET Core counters. Their internals are also detailed for a better understanding of usage/limits</description>
+    </item>
+    <item>
+      <title>Let’s debug the Core CLR with WinDBG!</title>
+      <link>http://localhost:1313/posts/2019-04-04_let-debug-the-core/</link>
+      <pubDate>Thu, 04 Apr 2019 13:32:51 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-04-04_let-debug-the-core/</guid>
+      <description>This post of the series shows how you could easily debug the Core CLR in a real world case of insane thread contention duration.</description>
+    </item>
+    <item>
+      <title>In-process CLR event listeners with .NET Core 2.2</title>
+      <link>http://localhost:1313/posts/2018-12-06_in-process-clr-event/</link>
+      <pubDate>Thu, 06 Dec 2018 13:52:09 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2018-12-06_in-process-clr-event/</guid>
+      <description>Write your own EventListener class</description>
+    </item>
+  </channel>
+</rss>

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Troubleshooting .NET performance issues with Datadog toolbox | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, GC, debugging, performance, diagnostics, memory, Cursor, HTTP">
+<meta name="description" content="How to troubleshoot well known Tess Ferrandez BuggyBits application with the Datadog toolbox including the new Continuous Profiler">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2022-01-28_troubleshooting-net-performanc/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2022-01-28_troubleshooting-net-performanc/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Troubleshooting .NET performance issues with Datadog toolbox
+    </h1>
+    <div class="post-description">
+      How to troubleshoot well known Tess Ferrandez BuggyBits application with the Datadog toolbox including the new Continuous Profiler
+    </div>
+    <div class="post-meta"><span title='2022-01-28 12:55:40.877 +0000 UTC'>January 28, 2022</span>&nbsp;·&nbsp;<span>8 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2022-01-28_troubleshooting-net-performanc/1__B5VXVtYIxx32h8wm-HNLA.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#setup-the-environment" aria-label="Setup the environment">Setup the environment</a></li>
+                <li>
+                    <a href="#looking-at-thesymptoms" aria-label="Looking at the symptoms">Looking at the symptoms</a></li>
+                <li>
+                    <a href="#here-comes-theprofiler" aria-label="Here comes the profiler">Here comes the profiler</a></li>
+                <li>
+                    <a href="#getting-used-to-flamegraph" aria-label="Getting used to flamegraph">Getting used to flamegraph</a></li>
+                <li>
+                    <a href="#investigate-the-performance-issue" aria-label="Investigate the performance issue">Investigate the performance issue</a></li>
+                <li>
+                    <a href="#different-types-offilters" aria-label="Different types of filters">Different types of filters</a></li>
+                <li>
+                    <a href="#references" aria-label="References">References</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>The beta of Datadog .NET Continuous Profiler is <a href="https://github.com/DataDog/dd-trace-dotnet/releases/tag/v2.1.1-profiler-beta1">available</a>!</p>
+<p>This is a great opportunity to show how to use the different tools provided by Datadog to troubleshoot .NET applications facing performance issues. <a href="https://twitter.com/TessFerrandez">Tess Ferrandez</a> updated her famous BuggyBits application to .NET Core. Among the <a href="https://www.tessferrandez.com/blog/2008/02/04/debugging-demos-setup-instructions.html">different available scenarios</a>, let’s see how to investigate the <a href="https://www.tessferrandez.com/blog/2008/02/27/net-debugging-demos-lab-4-walkthrough.html">Lab 4 — High CPU Hang</a> with Datadog. It will be completely different from Tess way: no need to analyze memory dump anymore.</p>
+<h2 id="setup-the-environment">Setup the environment<a hidden class="anchor" aria-hidden="true" href="#setup-the-environment">#</a></h2>
+<p>First, you need to download and run the .msi from our Tracer repository: it will install both the Tracer and the Profiler. The former allows you, among other things, to see how long it takes to process ASP.NET Core requests. The latter is in Beta today and provides wall time duration of your threads (more on this later). Look at the corresponding documentations for the details of enabling <a href="https://docs.datadoghq.com/tracing/setup_overview/setup/dotnet-framework/?tab=windows">tracing</a> and <a href="https://docs.datadoghq.com/tracing/profiler/enabling/dotnet">profiling</a> once installed.</p>
+<p>Next, ensure that <strong>.NET Runtime Metrics</strong> are installed for your organization:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_87cPlnHNwMWqRpt4veVxkw.png"></p>
+<p>Add <strong>DD_RUNTIME_METRICS_ENABLED=true</strong> environment variable for the application/service you want to monitor. Once enabled for your application, this package allows you to see the evolution of <a href="https://docs.datadoghq.com/tracing/runtime_metrics/dotnet/">important metrics</a> including some that you won’t find anywhere else such as GC pause time, thread contention time or count of exceptions per type.</p>
+<p>Ensure that <a href="https://docs.datadoghq.com/developers/dogstatsd/?tab=hostagent#setup">DogstatsD is setup</a> for the Agent</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_V1sQz72I3ZwAgzjG6G-8eA.png"></p>
+<h2 id="looking-at-thesymptoms">Looking at the symptoms<a hidden class="anchor" aria-hidden="true" href="#looking-at-thesymptoms">#</a></h2>
+<p>In my example, the buggybits application is running under the <em>datadog.demos.buggybits</em> service name. This is how I can filter the related traces in the APM/Traces part of the Datadog portal:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_IpoI4Qh-Gm0sbgPeM7u8Sg.png"></p>
+<p>In this screenshot, the <strong>Products/Index</strong> requests duration is around 6 seconds; which is way too long!</p>
+<p>When clicking such a request, the details panel provides the exact URL in the <strong>Tags</strong> tab:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_rMphP6jfVQNQ7ZD9p5dr0g.png"></p>
+<p>The <strong>Metrics</strong> tab shows CPU usage and other few metrics around the trace time:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_zL8l7705sS_x-0zNhU6v6A.png"></p>
+<p>So, in addition to having slow requests, the CPU usage seems to increase.</p>
+<p>It is now time to go to the <em>.NET runtime metrics</em> dashboard and look at what is going on in more details. The first graph that shows up is the number of gen2 collections:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_RUSWt8-h068RgOP76rSQSQ.png"></p>
+<p>It means that during the 10 minutes test where very few requests are processed, almost 800 gen2 GC are happening every 10s (all runtime metrics are computed every 10 seconds).</p>
+<p>The load test corresponding to these requests lasted 10 minutes between 4pm and 6+pm. Each time the requests were processed:</p>
+<ul>
+<li>the CPU usage increased</li>
+<li>the number of gen2 collections increased</li>
+<li>the duration of pauses due to garbage collections increased</li>
+<li>the threads contention time increased</li>
+</ul>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_iCzt6wCUu-yUef5btID_-g.png"></p>
+<p>In addition to being slow, it seems that the code that processes <em>products/index</em> HTTP requests has also an impact on the CPU (i.e. on the overall application and machine performances).</p>
+<p>It would be great if we could see the callstacks corresponding to this processing. This is exactly what the .NET Wall time Continuous Profiler is all about: looking at the duration of methods through a flamegraph representation.</p>
+<h2 id="here-comes-theprofiler">Here comes the profiler<a hidden class="anchor" aria-hidden="true" href="#here-comes-theprofiler">#</a></h2>
+<p>Today, there is no direct way to jump from a trace to the profile containing the callstacks while the corresponding request was processed. We are currently working on this new feature called <em>Code Hotspots</em>.</p>
+<p>However, it is easy to use the service name to filter the profiles and select the period of time from APM/Profile Search:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_ft1EYQ2z0aXcHpxjgRZzgg.png"></p>
+<p>When you click a one-minute profile (the callstacks are gathered and sent every minute), a panel appears with the <strong>Performance</strong> tab selected. It shows a framegraph on the left and a list on the right.</p>
+<h2 id="getting-used-to-flamegraph">Getting used to flamegraph<a hidden class="anchor" aria-hidden="true" href="#getting-used-to-flamegraph">#</a></h2>
+<p>When you look at the wall time flamegraph, you see everything that happened during a single minute:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1__B5VXVtYIxx32h8wm-HNLA.png"></p>
+<p>The previous screenshot highlights the groups of callstacks corresponding to the different threads of execution (from left to right):</p>
+<ul>
+<li>the <strong>Main()</strong> entry point of the application</li>
+<li>the code in the CLR responsible for sending counters</li>
+<li>the code in the Profiler in charge of generating and sending (the very thin spike) the profile every minute</li>
+<li>the Tracer code</li>
+<li>the code that listens to the CLR events to generate the runtime metrics</li>
+<li>…and the application code that processes the requests!</li>
+</ul>
+<p>In the flamegraph, the width of each frame on a row represents the relative time during which the frame was found on a callstack. For example, in our tests, we have 4 threads simply calling <strong>Thread.Sleep</strong>; one for 10 seconds, one for 20 seconds, one for 30 seconds and a last one for 40 seconds. This is the expected result in a flamegraph (i.e. the widths are consistent with the 1/2/3/4 ratio):</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_mVT5PCAbJhkA2lrq3UbeCw.png"></p>
+<p>This also applies to CPU-bound threads. For example, if 3 threads are computing the sum of numbers in a tight loop, this is the expected result (i.e. all <strong>OnCPUxxx</strong> have the same width)</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_byJpeSeYTLlJNgyLOBH73A.png"></p>
+<p>These explanations should stop the fear that started to crawl inside your head about the “visible cost” of the Datadog Tracer and Profiler based on the previous screenshot. The large width of the Datadog threads frames is all about wall time, not CPU time: we are mostly sleeping or waiting but we don’t stop :^)</p>
+<h2 id="investigate-the-performance-issue">Investigate the performance issue<a hidden class="anchor" aria-hidden="true" href="#investigate-the-performance-issue">#</a></h2>
+<p>The next step is to focus on the stack frames corresponding to the request processing to better understand what is going on.</p>
+<p>Basically, you would like to either remove a branch or keep only a branch. You simply have to move the mouse over a frame (i.e. <strong>ThreadPoolWorkQueue</strong> in the previous screenshot) and click the three dots that just appeared. Next, select <strong>Show From</strong> to keep only that branch in the flamegraph:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_fq0_NeVQlii7qQS0gvBrRw.png"></p>
+<p>Now, scroll-down into the flamegraph and the flow of execution corresponding to processing the <em>Products/Index</em> request becomes more visible:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_TZHJO6vuO6VWar4FjVhlQQ.png"></p>
+<p>It seems that the <strong>Index()</strong> method of the <strong>ProductsController</strong> is spending most of its time calling <strong>String.Concat()</strong>.</p>
+<p>Let’s have a look at the <a href="https://github.com/TessFerrandez/BuggyBits/blob/main/src/BuggyBits/Controllers/ProductsController.cs#L18">source code</a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="c1">// GET: Products</span>
+</span></span><span class="line"><span class="cl"><span class="kd">public</span> <span class="n">IActionResult</span> <span class="n">Index</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">products</span> <span class="p">=</span> <span class="n">dataLayer</span><span class="p">.</span><span class="n">GetAllProducts</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">productsTable</span> <span class="p">=</span> <span class="s">&#34;&lt;table&gt;&lt;tr&gt;&lt;th&gt;Product Name&lt;/th&gt;&lt;th&gt;Description&lt;/th&gt;&lt;th&gt;Price&lt;/th&gt;&lt;/tr&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">product</span> <span class="k">in</span> <span class="n">products</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">productsTable</span> <span class="p">+=</span> <span class="s">$&#34;&lt;tr&gt;&lt;td&gt;{product.ProductName}&lt;/td&gt;&lt;td&gt;{product.Description}&lt;/td&gt;&lt;td&gt;{product.Price}&lt;/td&gt;&lt;/tr&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">productsTable</span> <span class="p">+=</span> <span class="s">&#34;&lt;/table&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">ViewData</span><span class="p">[</span><span class="s">&#34;ProductsTable&#34;</span><span class="p">]</span> <span class="p">=</span> <span class="n">productsTable</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">View</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>But still no sign of <strong>String.Concat()</strong>… Well, this is because the C# compiler is hiding it from you with the <strong>+=</strong> syntaxic sugar. Let’s have a look at the decompiled code as shown by IlSpy (without the <strong>string.Concat</strong> transformation):</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="n">Microsoft</span><span class="p">.</span><span class="n">AspNetCore</span><span class="p">.</span><span class="n">Mvc</span><span class="p">.</span><span class="n">IActionResult</span> <span class="n">Index</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">products</span> <span class="p">=</span> <span class="n">dataLayer</span><span class="p">.</span><span class="n">GetAllProducts</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">string</span> <span class="n">productsTable</span> <span class="p">=</span> <span class="s">&#34;&lt;table&gt;&lt;tr&gt;&lt;th&gt;Product Name&lt;/th&gt;&lt;th&gt;Description&lt;/th&gt;&lt;th&gt;Price&lt;/th&gt;&lt;/tr&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">enumerator</span> <span class="p">=</span> <span class="n">products</span><span class="p">.</span><span class="n">GetEnumerator</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="k">try</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="n">enumerator</span><span class="p">.</span><span class="n">MoveNext</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">BuggyBits</span><span class="p">.</span><span class="n">Models</span><span class="p">.</span><span class="n">Product</span> <span class="n">product</span> <span class="p">=</span> <span class="n">enumerator</span><span class="p">.</span><span class="n">Current</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">string</span><span class="p">[]</span> <span class="n">array</span> <span class="p">=</span> <span class="k">new</span> <span class="kt">string</span><span class="p">[</span><span class="m">8</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">            <span class="n">array</span><span class="p">[</span><span class="m">0</span><span class="p">]</span> <span class="p">=</span> <span class="n">productsTable</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">array</span><span class="p">[</span><span class="m">1</span><span class="p">]</span> <span class="p">=</span> <span class="s">&#34;&lt;tr&gt;&lt;td&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">array</span><span class="p">[</span><span class="m">2</span><span class="p">]</span> <span class="p">=</span> <span class="n">product</span><span class="p">.</span><span class="n">ProductName</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">array</span><span class="p">[</span><span class="m">3</span><span class="p">]</span> <span class="p">=</span> <span class="s">&#34;&lt;/td&gt;&lt;td&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">array</span><span class="p">[</span><span class="m">4</span><span class="p">]</span> <span class="p">=</span> <span class="n">product</span><span class="p">.</span><span class="n">Description</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">array</span><span class="p">[</span><span class="m">5</span><span class="p">]</span> <span class="p">=</span> <span class="s">&#34;&lt;/td&gt;&lt;td&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">array</span><span class="p">[</span><span class="m">6</span><span class="p">]</span> <span class="p">=</span> <span class="n">product</span><span class="p">.</span><span class="n">Price</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">array</span><span class="p">[</span><span class="m">7</span><span class="p">]</span> <span class="p">=</span> <span class="s">&#34;&lt;/td&gt;&lt;/tr&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">productsTable</span> <span class="p">=</span> <span class="kt">string</span><span class="p">.</span><span class="n">Concat</span><span class="p">(</span><span class="n">array</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">finally</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="p">((</span><span class="n">System</span><span class="p">.</span><span class="n">IDisposable</span><span class="p">)</span><span class="n">enumerator</span><span class="p">).</span><span class="n">Dispose</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">productsTable</span> <span class="p">=</span> <span class="kt">string</span><span class="p">.</span><span class="n">Concat</span><span class="p">(</span><span class="n">productsTable</span><span class="p">,</span> <span class="s">&#34;&lt;/table&gt;&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">base</span><span class="p">.</span><span class="n">ViewData</span><span class="p">[</span><span class="s">&#34;ProductsTable&#34;</span><span class="p">]</span> <span class="p">=</span> <span class="n">productsTable</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">View</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>So now we can see the call to <strong>string.Concat()</strong> at the end of the <strong>while</strong> loop iteration.</p>
+<p>Behind the scene, since a string object is immutable, <strong>string.Concat()</strong> will create a new string each time it is called and the previous string referenced by <strong>productsTable</strong> is no more rooted and will put more pressure on the GC. If I’m telling you that <strong>datalayer.GetAllProducts()</strong> returns 10.000 products, it means that <strong>string.Concat</strong> gets called 10.000 times.</p>
+<p>As the string grows, it will reach the 85000 bytes limit and start to be allocated in the LOH, adding more pressure on GC that will trigger gen2 collections; hence the high number of gen2 collections seen in the runtime metrics dashboard.</p>
+<p>Note that if the native frames were visible in the flamegraph (by the way, let me know if this is a feature that would make sense to add), you would see the methods of the CLR responsible for the GC.</p>
+<p>Look at <a href="https://www.tessferrandez.com/blog/2008/02/27/net-debugging-demos-lab-4-walkthrough.html">Tess Ferrandez post</a> for a possible solution to this expensive code pattern (i.e. calling <strong>string.Contact</strong> in a large tight loop)</p>
+<h2 id="different-types-offilters">Different types of filters<a hidden class="anchor" aria-hidden="true" href="#different-types-offilters">#</a></h2>
+<p>Before leaving, I would like to quicky talk about the list shown on the right hand-side of the UI.</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_S3wDYybXPZIbdB3fFdVong.png"></p>
+<p>It allows you to see a wall time summary per method name, namespace (i.e. sum of methods from types in the same namespace, thread ID (i.e. internal Datadog unique ID), thread name or AppDomain Name.</p>
+<p>First, the only methods listed here are “leaf” methods: they appear at the top of at least one callstack. If you would like to visually see some specific frames, you should use the filter box:</p>
+<p><img loading="lazy" src="/posts/2022-01-28_troubleshooting-net-performanc/1_GTUUF548uj1JVUV3kLkUcA.png"></p>
+<p>All other frames are faded out.</p>
+<p>Second, the list is sorted with the largest wall time at the top: this could be an easy way to spot method “expensive” in term of CPU (i.e. will frequently be running so appear at the top of the stack). You simply need to skip the wait and sleep related methods like shown in the previous screenshot: <strong>String.Concat</strong> and <strong>Buffer._Memmove</strong> (used by <strong>string.Concat</strong>) were just in front of your eyes!</p>
+<p>When you select an element of the list, the flamegraph is updated accordingly: only the callstacks containing this element will be visible (it could speed up the filtering process)</p>
+<h2 id="references">References<a hidden class="anchor" aria-hidden="true" href="#references">#</a></h2>
+<ul>
+<li>Datadog Tracer &amp; Continuous Profiler <a href="https://github.com/DataDog/dd-trace-dotnet/releases/tag/v2.1.1-profiler-beta1">.msi Installer</a></li>
+<li><a href="https://docs.datadoghq.com/tracing/profiler/enabling/dotnet">Datadog Continuous Profiler documentation</a></li>
+<li><a href="https://docs.datadoghq.com/tracing/setup_overview/setup/dotnet-framework/?tab=windows">Datadog Tracer documentation</a></li>
+<li><a href="https://docs.datadoghq.com/tracing/runtime_metrics/dotnet/">Datadog Runtime metrics documentation</a></li>
+<li><a href="https://twitter.com/TessFerrandez">Tess Ferrandez</a> repository for <a href="https://www.tessferrandez.com/blog/2008/02/04/debugging-demos-setup-instructions.html">BuggyBits labs</a></li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2022-03-14_value-types-and-exceptions/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Value types and exceptions in .NET profiling</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2021-12-18_accessing-arrays-and-class/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Accessing arrays and class fields with .NET profiling APIs</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

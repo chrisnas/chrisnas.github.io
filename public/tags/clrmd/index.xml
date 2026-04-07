@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>ClrMD on Welcome to Christophe Nasarre&#39;s Blog</title>
+    <link>http://localhost:1313/tags/clrmd/</link>
+    <description>Recent content in ClrMD on Welcome to Christophe Nasarre&#39;s Blog</description>
+    <generator>Hugo</generator>
+    <language>en-us</language>
+    <lastBuildDate>Wed, 11 Feb 2026 09:16:11 +0000</lastBuildDate>
+    <atom:link href="http://localhost:1313/tags/clrmd/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>How to support .NET Framework PDB format and source line with ISymUnmanagedReader</title>
+      <link>http://localhost:1313/posts/2026-02-11_how-to-support-net/</link>
+      <pubDate>Wed, 11 Feb 2026 09:16:11 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2026-02-11_how-to-support-net/</guid>
+      <description>After DIA and DbgHelp, time to dig into ISymUnmanagedReader to get its line in source code.</description>
+    </item>
+    <item>
+      <title>How to write your own commands in dotnet-dump (2/2)</title>
+      <link>http://localhost:1313/posts/2020-11-09_how-to-write-commands/</link>
+      <pubDate>Mon, 09 Nov 2020 16:27:38 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-11-09_how-to-write-commands/</guid>
+      <description>This post describes the different steps, tips and tricks to write your own commands for dotnet-dump</description>
+    </item>
+    <item>
+      <title>How to extend dotnet-dump (1/2) — What are the new commands?</title>
+      <link>http://localhost:1313/posts/2020-09-29_how-to-extend-dotnet/</link>
+      <pubDate>Tue, 29 Sep 2020 14:26:16 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-09-29_how-to-extend-dotnet/</guid>
+      <description>This first post describes the new commands, when to use them, and the git setup I used to implement them.</description>
+    </item>
+    <item>
+      <title>The .NET Core Journey at Criteo</title>
+      <link>http://localhost:1313/posts/2020-07-31_the-net-core-journey/</link>
+      <pubDate>Fri, 31 Jul 2020 15:55:50 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2020-07-31_the-net-core-journey/</guid>
+      <description>This post shows the challenges we faced during the migration to .NET Core on containerized Linux for our main application.</description>
+    </item>
+    <item>
+      <title>Getting another view on thread stacks with ClrMD</title>
+      <link>http://localhost:1313/posts/2019-12-31_getting-another-view-on/</link>
+      <pubDate>Tue, 31 Dec 2019 10:52:00 +0000</pubDate>
+      <guid>http://localhost:1313/posts/2019-12-31_getting-another-view-on/</guid>
+      <description>This post of the series details how to look into your threads stack with ClrMD to get method calls, parameters and local variables.</description>
+    </item>
+  </channel>
+</rss>

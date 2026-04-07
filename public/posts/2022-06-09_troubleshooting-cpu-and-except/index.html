@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Troubleshooting CPU and exceptions issues with Datadog toolbox | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, GC, debugging, performance, diagnostics, memory, PDB, Cursor, HTTP">
+<meta name="description" content="Learn how to use Datadog CPU and exceptions profiling to troubleshoot well known Tess Ferrandez BuggyBits">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Troubleshooting CPU and exceptions issues with Datadog toolbox
+    </h1>
+    <div class="post-description">
+      Learn how to use Datadog CPU and exceptions profiling to troubleshoot well known Tess Ferrandez BuggyBits
+    </div>
+    <div class="post-meta"><span title='2022-06-09 16:09:27.113 +0000 UTC'>June 9, 2022</span>&nbsp;·&nbsp;<span>6 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2022-06-09_troubleshooting-cpu-and-except/1_uNg9te1UxHzFUzCCwJN3PQ.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#its-linux-showtime" aria-label="It’s Linux showtime!">It’s Linux showtime!</a></li>
+                <li>
+                    <a href="#from-spans-toprofiles" aria-label="From spans to profiles">From spans to profiles</a></li>
+                <li>
+                    <a href="#cpu-profiling" aria-label="CPU profiling">CPU profiling</a></li>
+                <li>
+                    <a href="#exceptions-profiling" aria-label="Exceptions profiling">Exceptions profiling</a></li>
+                <li>
+                    <a href="#profiling-the-application-bootstrap" aria-label="Profiling the application bootstrap">Profiling the application bootstrap</a></li>
+                <li>
+                    <a href="#major-implementation-refactoring" aria-label="Major implementation refactoring">Major implementation refactoring</a></li>
+                <li>
+                    <a href="#references" aria-label="References">References</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>With the new 2.10 release of the Datadog .NET Tracer and Continuous Profiler available, it is time to update some investigation workflows <a href="/posts/2022-01-28_troubleshooting-net-performanc/">I already introduced</a>. New features have been added to help you diagnose performance issues in your .NET applications:</p>
+<ul>
+<li>Linux support!</li>
+<li>Code Hotspots: allow you to automatically navigate from lengthy spans and requests to profiles</li>
+<li>CPU profiling: pinpoint high CPU consuming methods</li>
+<li>Exceptions profiling: identify exceptions distributions</li>
+<li>Profile sequence: easily profile an application startup</li>
+</ul>
+<p>The goal of this post is to show you how all these features make your investigations easier. I would recommend reading <a href="/posts/2022-01-28_troubleshooting-net-performanc/">the previous post</a>; especially for the environment setup that I won’t repeat here.</p>
+<h2 id="its-linux-showtime">It’s Linux showtime!<a hidden class="anchor" aria-hidden="true" href="#its-linux-showtime">#</a></h2>
+<p>The .NET Continuous Profiler is now available for Linux. The only limitation is the presence of glibc 2.18+ in the distribution; for example, CentOS 7 is not supported. Beyond that, we provide features parity between Linux and Windows.</p>
+<p>In terms of installation, download the <a href="https://github.com/DataDog/dd-trace-dotnet/releases">.NET Tracer package</a> that supports your operating system and architecture. Go to <a href="https://docs.datadoghq.com/tracing/profiler/enabling/dotnet?tab=linux">the documentation</a> for the additional configuration steps.</p>
+<h2 id="from-spans-toprofiles">From spans to profiles<a hidden class="anchor" aria-hidden="true" href="#from-spans-toprofiles">#</a></h2>
+<p>When analysing lengthy requests, you usually start from looking at the corresponding spans in the APM Traces part of the UI. It is now possible to view the corresponding profiles by clicking the “View Profile” button in the “Code Hotspots” tab:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_uNg9te1UxHzFUzCCwJN3PQ.png"></p>
+<p>Before digging into the profiling information, you are already able to see that more than half of the time is spent in <strong>Buffer._Memmove</strong> that is called by Buggybits <strong>ProductsController.Index</strong> method:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_FjzJDKmiR40r7UYzjtV8HQ.png"></p>
+<p>From the profile view, it is also possible to come back to the traces:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_6M_WOoI8WOUxUukEti7TxQ.png"></p>
+<p>Let’s see now what new features are available at the profiling side.</p>
+<h2 id="cpu-profiling">CPU profiling<a hidden class="anchor" aria-hidden="true" href="#cpu-profiling">#</a></h2>
+<p>The most demanded feature was the ability to analyse CPU consumption (a.k.a. CPU profiling). The idea is to be able to identify code that really consumes CPU usage and optimize it. This is particularly important in the context of cloud-based computing where what you pay is related to the consumed CPU.</p>
+<p>In term of implementation, unlike Wall Time profiling, we look at the time spent by a thread on a CPU core and not the elapsed time since the last time we checked (every ~10ms). We also collect the call stack of a thread only if it is currently running on a core. Why? Because we want to only record call stacks corresponding to code paths that are consuming CPU. For example, ThreadPool threads are usually waiting (not interesting call stack) for a work item to process (interesting call stack).</p>
+<p>In the <a href="/posts/2022-01-28_troubleshooting-net-performanc/">last blog post</a>, the <a href="https://github.com/DataDog/dd-trace-dotnet/blob/master/profiler/src/Demos/Samples.BuggyBits/Controllers/ProductsController.cs#L124">code responsible for lengthy requests</a> is doing too many string concatenations (look for += in the following code):</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="n">IActionResult</span> <span class="n">Index</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">sw</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Stopwatch</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sw</span><span class="p">.</span><span class="n">Start</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">products</span> <span class="p">=</span> <span class="n">dataLayer</span><span class="p">.</span><span class="n">GetAllProducts</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">productsTable</span> <span class="p">=</span> <span class="s">&#34;&lt;table&gt;&lt;tr&gt;&lt;th&gt;Product Name&lt;/th&gt;&lt;th&gt;Description&lt;/th&gt;&lt;th&gt;Price&lt;/th&gt;&lt;/tr&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">product</span> <span class="k">in</span> <span class="n">products</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">productsTable</span> <span class="p">+=</span> <span class="s">$&#34;&lt;tr&gt;&lt;td&gt;{product.ProductName}&lt;/td&gt;&lt;td&gt;{product.Description}&lt;/td&gt;&lt;td&gt;{product.Price}&lt;/td&gt;&lt;/tr&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">productsTable</span> <span class="p">+=</span> <span class="s">&#34;&lt;/table&gt;&#34;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sw</span><span class="p">.</span><span class="n">Stop</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">ViewData</span><span class="p">[</span><span class="s">&#34;ElapsedTimeInMs&#34;</span><span class="p">]</span> <span class="p">=</span> <span class="n">sw</span><span class="p">.</span><span class="n">ElapsedMilliseconds</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ViewData</span><span class="p">[</span><span class="s">&#34;ProductsTable&#34;</span><span class="p">]</span> <span class="p">=</span> <span class="n">productsTable</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">View</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The Wall Time view was very explicit about <strong>ProductsController.Index()</strong> calling <strong>String.Concat()</strong> culprit:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_ajUXPb0-ANMBllBPfU91oQ.png"></p>
+<p>A simple solution is to <a href="https://github.com/DataDog/dd-trace-dotnet/blob/master/profiler/src/Demos/Samples.BuggyBits/Controllers/ProductsController.cs#L103">use a StringBuilder to optimize the concatenations</a>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="n">IActionResult</span> <span class="n">Builder</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">sw</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Stopwatch</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sw</span><span class="p">.</span><span class="n">Start</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">products</span> <span class="p">=</span> <span class="n">dataLayer</span><span class="p">.</span><span class="n">GetAllProducts</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">var</span> <span class="n">productsTable</span> <span class="p">=</span> <span class="k">new</span> <span class="n">StringBuilder</span><span class="p">(</span><span class="m">1000</span> <span class="p">*</span> <span class="m">80</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">productsTable</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="s">&#34;&lt;table&gt;&lt;tr&gt;&lt;th&gt;Product Name&lt;/th&gt;&lt;th&gt;Description&lt;/th&gt;&lt;th&gt;Price&lt;/th&gt;&lt;/tr&gt;&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="k">foreach</span> <span class="p">(</span><span class="kt">var</span> <span class="n">product</span> <span class="k">in</span> <span class="n">products</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">productsTable</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="s">$&#34;&lt;tr&gt;&lt;td&gt;{product.ProductName}&lt;/td&gt;&lt;td&gt;{product.Description}&lt;/td&gt;&lt;td&gt;{product.Price}&lt;/td&gt;&lt;/tr&gt;&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">productsTable</span><span class="p">.</span><span class="n">Append</span><span class="p">(</span><span class="s">&#34;&lt;/table&gt;&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sw</span><span class="p">.</span><span class="n">Stop</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">ViewData</span><span class="p">[</span><span class="s">&#34;ElapsedTimeInMs&#34;</span><span class="p">]</span> <span class="p">=</span> <span class="n">sw</span><span class="p">.</span><span class="n">ElapsedMilliseconds</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ViewData</span><span class="p">[</span><span class="s">&#34;ProductsTable&#34;</span><span class="p">]</span> <span class="p">=</span> <span class="n">productsTable</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">View</span><span class="p">(</span><span class="s">&#34;Index&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The Wall Time view of the profile with the fix does not provide anything useful…</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_Mqpq2MVAkCUpA8Z62wRtYA.png"></p>
+<p>If you want to go deeper, you need to look at the CPU consumption:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_Ox4XRvFCIQozhGAeC-6kTQ.png"></p>
+<p>The <strong>ProductController.Builder</strong> method is handling the request (like <strong>Index()</strong> in the String.Concat case) and calls <strong>DataLayer.GetAllProducts()</strong> where most of the CPU-related work is done.</p>
+<p>Would it be interesting to continue optimizing the code? Notice that <strong>GetAllProducts()</strong> is “only” consuming 94ms and the other <strong>Number.</strong>* and <strong>String.Concat</strong> method around 350ms. So a gain might be neglectable compared to the total ~3 seconds CPU usage</p>
+<p>Remember that you should not optimize for the sake of “optimizing”: you should have metrics that tell you when to start (too lengthy request processing) and when to stop.</p>
+<h2 id="exceptions-profiling">Exceptions profiling<a hidden class="anchor" aria-hidden="true" href="#exceptions-profiling">#</a></h2>
+<p>In the .NET world, exceptions are at the center of errors handling. It is now possible to get a sampled view of the exceptions that happened during an application lifetime; by type:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_uyUmkTTLlQjg1IhCBVoCcg.png"></p>
+<p>and by message:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_GRyr-g-jo8KXySpTRMTLpQ.png"></p>
+<p>At the implementation level, the new exceptions profiler is notified by the CLR when an exception is thrown. Since in special cases (such as network issue or invalid parsed data for example), an application could trigger thousands of exceptions in a very short period, it is needed to sample them. Otherwise, the impact on performances would be severe; especially if the call stack needs to be rebuilt for each exception.</p>
+<p>First, at least one exception per type is kept, ensuring that weird specific exceptions are not lost in the flow. Second, exceptions are sampled over time based on a fixed number of exceptions per profile and the rate of appearance. For knowing the exact number of exceptions, feel free to leverage the Runtime Metrics package as explained in the previous blog post.</p>
+<h2 id="profiling-the-application-bootstrap">Profiling the application bootstrap<a hidden class="anchor" aria-hidden="true" href="#profiling-the-application-bootstrap">#</a></h2>
+<p>In some situations, you are interested in analysing an application bootstrap. In Datadog APM Profile Search UI, it means finding the first profile of the given service execution. However, even with the date and time column, it is not obvious to find the right one:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_KapOJXMlqOX2nflnyNB1ZA.png"></p>
+<p>To help you find the initial profile of a service execution, a new “profile_seq” tag has been added to the HTTP request used to upload the profiles. It contains the count of generated profiles for a given execution of a service, starting from 0.</p>
+<p>So now, in the Options of the profile list, add a “profile_seq” column:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_BwnvwM5y6e0Xd20JXVL8XQ.png"></p>
+<p>The first profile is then easily spottable with a 0 value:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1__8Kf93AIiGsBCjGZl_SoyA.png"></p>
+<p>In the future, a more visual hint might be added to identify it without the need to add the column.</p>
+<h2 id="major-implementation-refactoring">Major implementation refactoring<a hidden class="anchor" aria-hidden="true" href="#major-implementation-refactoring">#</a></h2>
+<p>Finally, our implementation has benefited from a large code refactoring. As the previous post explained, the generation of .pprof files and their upload was done in C#. This has been replaced by using a rust library shared amongst different profiler libraries (native, Ruby, .NET).</p>
+<p>It means that you should not anymore see these frames in the application call stacks:</p>
+<p><img loading="lazy" src="/posts/2022-06-09_troubleshooting-cpu-and-except/1_FHcvrh7PIKIrMimv1FrW6g.png"></p>
+<p>It does not mean that one third of the processing has been removed! Just that no more C# code is running with performance gain. First, the managed implementation was allocating objects managed by the garbage collector; adding pressure that might trigger more collections. Second, with the native rust implementation, there is no need to duplicate data between the collecting native part of the continuous profiler and the managed code used to serialize it.</p>
+<p>In addition, several optimizations have been done in the symbol’s resolution (i.e., type and method names) part of the code that also reduce memory consumption and CPU usage.</p>
+<p>Happy profiling!</p>
+<h2 id="references">References<a hidden class="anchor" aria-hidden="true" href="#references">#</a></h2>
+<ul>
+<li>Datadog Tracer &amp; Continuous Profiler <a href="https://github.com/DataDog/dd-trace-dotnet/releases/tag/v2.10.0">.msi Installer and Linux tar.gz</a></li>
+<li><a href="https://docs.datadoghq.com/tracing/profiler/enabling/dotnet">Datadog Continuous Profiler documentation</a></li>
+<li><a href="https://docs.datadoghq.com/tracing/setup_overview/setup/dotnet-framework/?tab=windows">Datadog Tracer documentation</a></li>
+<li><a href="https://docs.datadoghq.com/tracing/runtime_metrics/dotnet/">Datadog Runtime metrics documentation</a></li>
+<li><a href="https://twitter.com/TessFerrandez">Tess Ferrandez</a> repository for <a href="https://www.tessferrandez.com/blog/2008/02/04/debugging-demos-setup-instructions.html">BuggyBits labs</a></li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/pdb/">PDB</a></li>
+      <li><a href="http://localhost:1313/tags/cursor/">Cursor</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2022-07-28_digging-into-the-clr/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Digging into the CLR Diagnostics IPC Protocol in C#</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2022-03-14_value-types-and-exceptions/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Value types and exceptions in .NET profiling</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

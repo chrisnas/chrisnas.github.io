@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Accessing arrays and class fields with .NET profiling APIs | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content=".NET, performance, memory">
+<meta name="description" content="This post describes how to access arrays and fields of reference type instances with .NET Profiler APIs.">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2021-12-18_accessing-arrays-and-class/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2021-12-18_accessing-arrays-and-class/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Accessing arrays and class fields with .NET profiling APIs
+    </h1>
+    <div class="post-description">
+      This post describes how to access arrays and fields of reference type instances with .NET Profiler APIs.
+    </div>
+    <div class="post-meta"><span title='2021-12-18 16:31:37.293 +0000 UTC'>December 18, 2021</span>&nbsp;·&nbsp;<span>9 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2021-12-18_accessing-arrays-and-class/1_gVi3qmL-iMZpQR2a89SkHQ.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#accessing-managedarrays" aria-label="Accessing managed arrays">Accessing managed arrays</a></li>
+                <li>
+                    <a href="#getting-fields-of-a-reference-typeinstance" aria-label="Getting fields of a reference type instance">Getting fields of a reference type instance</a></li>
+                <li>
+                    <a href="#references" aria-label="References">References</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>After getting basic and strings parameters, it is time to look at arrays and reference types.</p>
+<h2 id="accessing-managedarrays">Accessing managed arrays<a hidden class="anchor" aria-hidden="true" href="#accessing-managedarrays">#</a></h2>
+<p>You check against null array parameter the same way as for string:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">case</span> <span class="n">ELEMENT_TYPE_SZARRAY</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// look at the reference stored at the given address</span>
+</span></span><span class="line"><span class="cl">   <span class="n">unsigned</span> <span class="n">__int64</span><span class="p">*</span> <span class="n">pAddress</span> <span class="p">=</span> <span class="p">(</span><span class="n">unsigned</span> <span class="n">__int64</span><span class="p">*)</span><span class="n">address</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="kt">byte</span><span class="p">*</span> <span class="n">managedReference</span> <span class="p">=</span> <span class="p">(</span><span class="kt">byte</span><span class="p">*)(*</span><span class="n">pAddress</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="p">(</span><span class="n">managedReference</span> <span class="p">==</span> <span class="n">NULL</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="n">strcpy_s</span><span class="p">(</span><span class="k">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;null array&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <strong>ELEMENT_TYPE_SZARRAY</strong> applies to single dimension arrays including jagged arrays. <strong>ELEMENT_TYPE_ARRAY</strong> is used for matrice :</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">case</span> <span class="n">ELEMENT_TYPE_ARRAY</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// look at the reference stored at the given address</span>
+</span></span><span class="line"><span class="cl">   <span class="n">unsigned</span> <span class="n">__int64</span><span class="p">*</span> <span class="n">pAddress</span> <span class="p">=</span> <span class="p">(</span><span class="n">unsigned</span> <span class="n">__int64</span><span class="p">*)</span><span class="n">address</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="kt">byte</span><span class="p">*</span> <span class="n">managedReference</span> <span class="p">=</span> <span class="p">(</span><span class="kt">byte</span><span class="p">*)(*</span><span class="n">pAddress</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="p">(</span><span class="n">managedReference</span> <span class="p">==</span> <span class="n">NULL</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="n">strcpy_s</span><span class="p">(</span><span class="k">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;null matrix&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Since arrays are reference types, we know that the managed reference points to the address of the Method Table but we need more insights to get the elements. Again, Sergey Tepliakov explains in great details how single dimension arrays are laid out in memory:</p>
+<p><img loading="lazy" src="/posts/2021-12-18_accessing-arrays-and-class/0_3fZ9bQv70K96FXD2.png"></p>
+<p>The length is stored in front of the elements as you can see in Visual Studio for the following 10 elements integer array:</p>
+<pre tabindex="0"><code>var ints = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+</code></pre><p><img loading="lazy" src="/posts/2021-12-18_accessing-arrays-and-class/1_ZGsf7_dqCStZX_0JsDTLfw.png"></p>
+<p>Note that “jagged” arrays (i.e. array of array such as int[][]) are stored the same way: each element of the first array contains a reference to another array:</p>
+<p><img loading="lazy" src="/posts/2021-12-18_accessing-arrays-and-class/1_RkKLazyuqobQVMkqwjFgww.png"></p>
+<p>The layout is a little bit different for matrices (i.e. multi-dimensional arrays) such as this 2 x 4 integers array:</p>
+<pre tabindex="0"><code>var matrix = new int[,] { { 1, 1, 1, 1 }, { 2, 2, 2, 2 } };
+</code></pre><p><img loading="lazy" src="/posts/2021-12-18_accessing-arrays-and-class/1_enx0CIYive7JfoskgeX6vA.png"></p>
+<p>In that case, the total element count appears before each dimension length. The elements are stored row after row.</p>
+<p>The profiling API <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo2-getarrayobjectinfo-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo2::GetArrayObjectInfo</strong></a> gives us all the implementation details we need:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl">   <span class="c1">// single dimension array so the following arrays only need 1 element to receive size and lower bound</span>
+</span></span><span class="line"><span class="cl">   <span class="n">ULONG32</span><span class="p">*</span> <span class="n">pDimensionSizes</span> <span class="p">=</span> <span class="k">new</span> <span class="n">ULONG32</span><span class="p">[</span><span class="m">1</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">   <span class="kt">int</span><span class="p">*</span> <span class="n">pDimensionLowerBounds</span> <span class="p">=</span> <span class="k">new</span> <span class="kt">int</span><span class="p">[</span><span class="m">1</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">   <span class="kt">byte</span><span class="p">*</span> <span class="n">pElements</span><span class="p">;</span> <span class="c1">// will point to the beginning of the array elements</span>
+</span></span><span class="line"><span class="cl">   <span class="n">HRESULT</span> <span class="n">hr</span> <span class="p">=</span> <span class="n">_pProfilerInfo</span><span class="p">-&gt;</span><span class="n">GetArrayObjectInfo</span><span class="p">((</span><span class="n">ObjectID</span><span class="p">)</span><span class="n">managedReference</span><span class="p">,</span> <span class="m">1</span><span class="p">,</span> <span class="n">pDimensionSizes</span><span class="p">,</span> <span class="n">pDimensionLowerBounds</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">pElements</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Here is the description of each parameter:</p>
+<ul>
+<li>an <strong>ObjectID</strong> (i.e. a reference to an object in the managed heap) corresponding to an array.</li>
+<li>the number of dimensions (a.k.a. rank) so 1 for <strong>ELEMENT_TYPE_SZARRAY</strong> array. I will show in a moment how to get it for matrices.</li>
+<li>an allocated array to receive the size of each dimension</li>
+<li>an allocated array to receive the lower bound of each dimension; should be 0 for C#</li>
+<li>the address of the beginning of the elements</li>
+</ul>
+<p>So it is easy to detect an empty array: it means that its length is 0:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl">   <span class="n">ULONG32</span> <span class="n">arrayLength</span> <span class="p">=</span> <span class="n">pDimensionSizes</span><span class="p">[</span><span class="m">0</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">   <span class="n">delete</span> <span class="n">pDimensionSizes</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">delete</span> <span class="n">pDimensionLowerBounds</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="p">(</span><span class="n">arrayLength</span> <span class="p">==</span> <span class="m">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">      <span class="n">strcpy_s</span><span class="p">(</span><span class="k">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;empty single dimension array&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The next step is to get the value of each array element. It is easy to get the ClassID of a given object by calling <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo-getclassfromobject-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo::GetClassFromObject</strong></a> and then <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo-isarrayclass-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo::IsArrayClass</strong></a> will provide the array rank and its elements <strong>CorElementType</strong> and <strong>ClassID</strong>.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="c1">// get element type and array rank </span>
+</span></span><span class="line"><span class="cl"><span class="c1">// (could be used before calling GetArrayObjectInfo to allocate the size + bounds arrays)</span>
+</span></span><span class="line"><span class="cl"><span class="n">ClassID</span> <span class="n">classId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">ULONG</span> <span class="n">rank</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">CorElementType</span> <span class="n">baseElementType</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="p">=</span> <span class="n">_pProfilerInfo</span><span class="p">-&gt;</span><span class="n">GetClassFromObject</span><span class="p">((</span><span class="n">ObjectID</span><span class="p">)</span><span class="n">managedReference</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">classId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="p">=</span> <span class="n">_pProfilerInfo</span><span class="p">-&gt;</span><span class="n">IsArrayClass</span><span class="p">(</span><span class="n">classId</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">baseElementType</span><span class="p">,</span> <span class="n">NULL</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">rank</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>With these details, iterating over each element to get its value is not that complicated:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">char</span> <span class="n">elementValue</span><span class="p">[</span><span class="mi">128</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="n">ULONG</span> <span class="n">current</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">current</span> <span class="o">&lt;</span> <span class="n">arrayLength</span><span class="p">;</span> <span class="n">current</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">hr</span> <span class="o">=</span> <span class="n">GetElementValue</span><span class="p">(</span><span class="n">pElements</span><span class="p">,</span> <span class="n">baseElementType</span><span class="p">,</span> <span class="n">elementValue</span><span class="p">,</span> <span class="n">ARRAY_LEN</span><span class="p">(</span><span class="n">elementValue</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="n">strcat_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="n">elementValue</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="p">(</span><span class="n">FAILED</span><span class="p">(</span><span class="n">hr</span><span class="p">))</span> <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="p">(</span><span class="n">current</span> <span class="o">&lt;</span> <span class="n">arrayLength</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="n">strcat_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;, &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">strcat_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;)&#34;</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <strong>GetElementValue</strong> is where you need to use the element type to compute the value but also to know how many byte you need to move forward to look at the next element:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span><span class="lnt">70
+</span><span class="lnt">71
+</span><span class="lnt">72
+</span><span class="lnt">73
+</span><span class="lnt">74
+</span><span class="lnt">75
+</span><span class="lnt">76
+</span><span class="lnt">77
+</span><span class="lnt">78
+</span><span class="lnt">79
+</span><span class="lnt">80
+</span><span class="lnt">81
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">HRESULT</span> <span class="n">CorProfilerHelpers</span><span class="o">::</span><span class="n">GetElementValue</span><span class="p">(</span><span class="n">byte</span><span class="o">*&amp;</span> <span class="n">pElement</span><span class="p">,</span> <span class="n">CorElementType</span> <span class="n">elementType</span> <span class="p">,</span> <span class="n">mdToken</span> <span class="n">elementToken</span><span class="p">,</span> <span class="n">ModuleID</span> <span class="n">moduleId</span><span class="p">,</span> <span class="kt">char</span><span class="o">*</span> <span class="n">value</span><span class="p">,</span> <span class="n">ULONG</span> <span class="n">charCount</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">GetObjectValue</span><span class="p">((</span><span class="n">UINT_PTR</span><span class="p">)</span><span class="n">pElement</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">),</span> <span class="n">elementType</span><span class="p">,</span> <span class="n">elementToken</span><span class="p">,</span> <span class="n">moduleId</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">switch</span> <span class="p">(</span><span class="n">elementType</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_BOOLEAN</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">bool</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_CHAR</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">WCHAR</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_I1</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">char</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_U1</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">char</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_I2</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">short</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_U2</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">short</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_I4</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_U4</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">int</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_I8</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">long</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_U8</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_R4</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">float</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_R8</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">double</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_STRING</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_CLASS</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="c1">// NOTE: can&#39;t call GetObjectValue recursively because won&#39;t fit on one line
+</span></span></span><span class="line"><span class="cl">      <span class="n">sprintf_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;0x%p&#34;</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="n">UINT_PTR</span><span class="o">*</span><span class="p">)</span><span class="n">pElement</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_SZARRAY</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="c1">// arrays are reference types so skip the size of an address
+</span></span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">case</span> <span class="nl">ELEMENT_TYPE_OBJECT</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">strcpy_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;obj&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pElement</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">void</span><span class="o">*</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">default</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">      <span class="n">strcpy_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;?&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="k">return</span> <span class="n">E_FAIL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="k">return</span> <span class="n">S_OK</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>For matrices, it is needed to know the rank ahead of time to allocate the <strong>GetArrayObjectInfo</strong> out parameters:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">case</span> <span class="nl">ELEMENT_TYPE_ARRAY</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// same code to check null matrix
+</span></span></span><span class="line"><span class="cl">   <span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="c1">// get element type and array rank 
+</span></span></span><span class="line"><span class="cl">   <span class="c1">// --&gt; used before calling GetArrayObjectInfo to allocate the size + bounds arrays
+</span></span></span><span class="line"><span class="cl">   <span class="n">ClassID</span> <span class="n">classId</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">ULONG</span> <span class="n">rank</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">CorElementType</span> <span class="n">baseElementType</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">HRESULT</span> <span class="n">hr</span> <span class="o">=</span> <span class="n">_pProfilerInfo</span><span class="o">-&gt;</span><span class="n">GetClassFromObject</span><span class="p">((</span><span class="n">ObjectID</span><span class="p">)</span><span class="n">managedReference</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">classId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="n">hr</span> <span class="o">=</span> <span class="n">_pProfilerInfo</span><span class="o">-&gt;</span><span class="n">IsArrayClass</span><span class="p">(</span><span class="n">classId</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">baseElementType</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">rank</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="n">ULONG32</span><span class="o">*</span> <span class="n">pDimensionSizes</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ULONG32</span><span class="p">[</span><span class="n">rank</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">   <span class="kt">int</span><span class="o">*</span> <span class="n">pDimensionLowerBounds</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">int</span><span class="p">[</span><span class="n">rank</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">   <span class="n">byte</span><span class="o">*</span> <span class="n">pElements</span><span class="p">;</span> <span class="c1">// will point to the beginning of the array elements
+</span></span></span><span class="line"><span class="cl">   <span class="n">hr</span> <span class="o">=</span> <span class="n">_pProfilerInfo</span><span class="o">-&gt;</span><span class="n">GetArrayObjectInfo</span><span class="p">((</span><span class="n">ObjectID</span><span class="p">)</span><span class="n">managedReference</span><span class="p">,</span> <span class="n">rank</span><span class="p">,</span> <span class="n">pDimensionSizes</span><span class="p">,</span> <span class="n">pDimensionLowerBounds</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">pElements</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The following code shows how to compute each dimension length:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// show dimensions
+</span></span></span><span class="line"><span class="cl"><span class="n">strcpy_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;[&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="kt">char</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">16</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="n">ULONG32</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">rank</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">sprintf_s</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">ARRAY_LEN</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&#34;%u&#34;</span><span class="p">,</span> <span class="n">pDimensionSizes</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">   <span class="n">strcat_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="n">buffer</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="n">rank</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">      <span class="n">strcat_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;, &#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">strcat_s</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">charCount</span><span class="p">,</span> <span class="s">&#34;]&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">delete</span> <span class="n">pDimensionSizes</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">delete</span> <span class="n">pDimensionLowerBounds</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="getting-fields-of-a-reference-typeinstance">Getting fields of a reference type instance<a hidden class="anchor" aria-hidden="true" href="#getting-fields-of-a-reference-typeinstance">#</a></h2>
+<p>Since most “basic” types have been covered, it is now time to discuss the case of reference type parameters. Let’s take the following simple class as an example:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">ClassType</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">ClassType</span><span class="p">(</span><span class="kt">int</span> <span class="n">val</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">intField</span> <span class="p">=</span> <span class="n">val</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">stringField</span> <span class="p">=</span> <span class="p">(</span><span class="n">val</span> <span class="p">+</span> <span class="m">1</span><span class="p">).</span><span class="n">ToString</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">IntProperty</span> <span class="p">=</span> <span class="n">val</span> <span class="p">*</span> <span class="m">2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">int</span> <span class="n">IntProperty</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">int</span> <span class="n">intField</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="kt">string</span> <span class="n">stringField</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>On purpose, one property and two fields are defined. The C# compiler translates the automatic property syntax into a backing field to store the value</p>
+<p><img loading="lazy" src="/posts/2021-12-18_accessing-arrays-and-class/1_7DnYG2yxKx0CH15sxP2bOA.png"></p>
+<p>And the corresponding get/set accessors pair:</p>
+<p><img loading="lazy" src="/posts/2021-12-18_accessing-arrays-and-class/1_-UF5kEZXd0LFs7gANNGOrw.png"></p>
+<p>So when an instance of this class is passed as a parameter to the <strong>ClassParamReturnClass(ClassType obj)</strong> method, you should be able to list these three fields and access their value to build the following output:</p>
+<pre tabindex="0"><code>--&gt; ClassType ClassParamReturnClass (ClassType obj)
+|  int32 &lt;IntProperty&gt;k__BackingField = 84
+|  int32 intField = 42
+|  String stringField = 43
+ClassType obj = 0x00000276D0A98E78
+</code></pre><p>When you read Sergey Tepliakov in <a href="https://devblogs.microsoft.com/premier-developer/managed-object-internals-part-4-fields-layout?WT.mc_id=DT-MVP-5003325">Managed object internals, Part 4. Fields layout</a>, it sounds quite hard to achieve due to the complicated padding rules dictating where each field is stored in memory. Hopefully, the profiling API will help you a lot with a three steps process:</p>
+<ul>
+<li>Get the offset of each field value</li>
+<li>Get the name of each field</li>
+<li>Get the type of each field and then compute the value using the offset</li>
+</ul>
+<p>First, you need the <strong>ClassID</strong> corresponding to the type of the reference you want to dump and we have seen that <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo-getclassfromobject-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo::GetClassFromObject</strong></a> is perfect for that. Then, pass it to <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/profiling/icorprofilerinfo2-getclasslayout-method?WT.mc_id=DT-MVP-5003325"><strong>ICorProfilerInfo2::GetClassLayout</strong></a> to get the number of fields and their offset within an instance. This API expects you to call it once to get the number of fields and a second time to get the offset that are stored in a buffer you allocate after the first call.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">ULONG</span> <span class="n">fieldCount</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> 
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">_pProfilerInfo</span><span class="o">-&gt;</span><span class="n">GetClassLayout</span><span class="p">(</span><span class="n">classID</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">fieldCount</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1">// no field to dump
+</span></span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">fieldCount</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">   <span class="k">break</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">COR_FIELD_OFFSET</span><span class="o">*</span> <span class="n">pFieldOffsets</span> <span class="o">=</span> <span class="k">new</span> <span class="n">COR_FIELD_OFFSET</span><span class="p">[</span><span class="n">fieldCount</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">_pProfilerInfo</span><span class="o">-&gt;</span><span class="n">GetClassLayout</span><span class="p">(</span><span class="n">classID</span><span class="p">,</span> <span class="n">pFieldOffsets</span><span class="p">,</span> <span class="n">fieldCount</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">fieldCount</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <a href="https://docs.microsoft.com/en-us/dotnet/framework/unmanaged-api/metadata/cor-field-offset-structure?WT.mc_id=DT-MVP-5003325"><strong>COR_FIELD_OFFSET</strong></a> structure has a confusing name because it contains more than just the offset:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-c" data-lang="c"><span class="line"><span class="cl"><span class="k">typedef</span> <span class="k">struct</span> <span class="n">COR_FIELD_OFFSET</span> <span class="p">{</span>  
+</span></span><span class="line"><span class="cl">    <span class="n">mdFieldDef</span>  <span class="n">ridOfField</span><span class="p">;</span>  
+</span></span><span class="line"><span class="cl">    <span class="n">ULONG</span>       <span class="n">ulOffset</span><span class="p">;</span>  
+</span></span><span class="line"><span class="cl"><span class="p">}</span> <span class="n">COR_FIELD_OFFSET</span><span class="p">;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <strong>ridOfField</strong> part gives you the metadata token corresponding to a field as shown in ILSpy:</p>
+<p><img loading="lazy" src="/posts/2021-12-18_accessing-arrays-and-class/1_gVi3qmL-iMZpQR2a89SkHQ.png"></p>
+<p>It will allow you to get its name and the usual binary signature for its type via <a href="https://docs.microsoft.com/en-us/windows/win32/api/rometadataapi/nf-rometadataapi-imetadataimport-getfieldprops?WT.mc_id=DT-MVP-5003325"><strong>IMetaDataImport::GetFieldProps</strong></a>.</p>
+<p>So you first need to get the <strong>IMetaDataImport</strong> implementation for the class module:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">IMetaDataImport</span><span class="o">*</span> <span class="n">pMetaDataImport</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>  
+</span></span><span class="line"><span class="cl"><span class="n">ModuleID</span> <span class="n">moduleID</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">mdTypeDef</span> <span class="n">typeDefToken</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">WCHAR</span> <span class="n">name</span><span class="p">[</span><span class="mi">256</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">_pProfilerInfo</span><span class="o">-&gt;</span><span class="n">GetClassIDInfo</span><span class="p">(</span><span class="n">classID</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">moduleID</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">typeDefToken</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">hr</span> <span class="o">=</span> <span class="n">_pProfilerInfo</span><span class="o">-&gt;</span><span class="n">GetModuleMetaData</span><span class="p">(</span><span class="n">moduleID</span><span class="p">,</span> <span class="n">ofRead</span><span class="p">,</span> <span class="n">IID_IMetaDataImport</span><span class="p">,</span> <span class="p">(</span><span class="n">IUnknown</span><span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">pMetaDataImport</span><span class="p">);</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>It is now time to iterate on each field to get its name, type and value for the given object:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="kt">char</span> <span class="n">value</span><span class="p">[</span><span class="mi">512</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="kt">char</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="mi">260</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="p">(</span><span class="n">ULONG</span> <span class="n">fieldIndex</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">fieldIndex</span> <span class="o">&lt;</span> <span class="n">fieldCount</span><span class="p">;</span> <span class="n">fieldIndex</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="n">PCCOR_SIGNATURE</span> <span class="n">pSigBlob</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">ULONG</span> <span class="n">sigBlobSize</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">   <span class="n">name</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="sa">L</span><span class="sc">&#39;\0&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">   <span class="n">hr</span> <span class="o">=</span> <span class="n">pMetaDataImport</span><span class="o">-&gt;</span><span class="n">GetFieldProps</span><span class="p">(</span><span class="n">pFieldOffsets</span><span class="p">[</span><span class="n">fieldIndex</span><span class="p">].</span><span class="n">ridOfField</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">      <span class="n">name</span><span class="p">,</span> <span class="n">ARRAY_LEN</span><span class="p">(</span><span class="n">name</span><span class="p">),</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">pSigBlob</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">sigBlobSize</span><span class="p">,</span> 
+</span></span><span class="line"><span class="cl">      <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="k">if</span> <span class="p">(</span><span class="n">SUCCEEDED</span><span class="p">(</span><span class="n">hr</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">   <span class="p">{</span>
+</span></span><span class="line"><span class="cl">   <span class="c1">// skip the &#34;calling convention&#34; that should correspond to a &#39;field&#39;
+</span></span></span><span class="line"><span class="cl">      <span class="n">ULONG</span> <span class="n">callingConvention</span> <span class="o">=</span> <span class="o">*</span><span class="n">pSigBlob</span><span class="o">++</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="n">assert</span><span class="p">(</span><span class="n">callingConvention</span> <span class="o">==</span> <span class="n">IMAGE_CEE_CS_CALLCONV_FIELD</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">      <span class="n">buffer</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="sc">&#39;\0&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="n">pSigBlob</span> <span class="o">=</span> <span class="n">ParseElementType</span><span class="p">(</span><span class="n">pMetaDataImport</span><span class="p">,</span> <span class="n">pSigBlob</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">elementType</span><span class="p">,</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">ARRAY_LEN</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">      <span class="c1">// get its value from pFieldOffsets[fieldIndex].ulOffset
+</span></span></span><span class="line"><span class="cl">      <span class="n">value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="sc">&#39;\0&#39;</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">      <span class="n">GetObjectValue</span><span class="p">((</span><span class="n">UINT_PTR</span><span class="p">)(</span><span class="n">managedReference</span> <span class="o">+</span> <span class="n">pFieldOffsets</span><span class="p">[</span><span class="n">fieldIndex</span><span class="p">].</span><span class="n">ulOffset</span><span class="p">),</span> <span class="n">length</span><span class="p">,</span> <span class="n">elementType</span><span class="p">,</span> <span class="n">elementToken</span><span class="p">,</span> <span class="n">moduleId</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">ARRAY_LEN</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">   <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">delete</span> <span class="p">[]</span> <span class="n">pFieldOffsets</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">pMetaDataImport</span><span class="o">-&gt;</span><span class="n">Release</span><span class="p">();</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The only thing that differs from the blob signature parsing you have seen earlier is that it starts with a “calling convention” (yes I know that we are talking about field and not method!) equal to <strong>IMAGE_CEE_CS_CALLCONV_FIELD</strong>.</p>
+<p>The field value is stored in memory at <strong>ulOffset</strong> bytes after the address pointed to by the given managed reference.</p>
+<p>The next episode will describe how to dump value type instances, the return values and exceptions handling: a good way to start 2022!</p>
+<h2 id="references">References<a hidden class="anchor" aria-hidden="true" href="#references">#</a></h2>
+<ul>
+<li><a href="https://mattwarren.org/2017/05/08/Arrays-and-the-CLR-a-Very-Special-Relationship/">Arrays and the CLR — a Very Special Relationship</a> by <a href="https://twitter.com/matthewwarren">Matt Warren</a></li>
+<li><a href="https://devblogs.microsoft.com/premier-developer/managed-object-internals-part-3-the-layout-of-a-managed-array-3?WT.mc_id=DT-MVP-5003325">Managed object internals, Part 3. The layout of a managed array</a> by <a href="https://devblogs.microsoft.com/premier-developer/author/seteplia/">Sergey Tepliakov</a></li>
+<li><a href="https://devblogs.microsoft.com/premier-developer/managed-object-internals-part-4-fields-layout?WT.mc_id=DT-MVP-5003325">Managed object internals, Part 4. Fields layout</a> by <a href="https://devblogs.microsoft.com/premier-developer/author/seteplia/">Sergey Tepliakov</a></li>
+<li>Episode 1: <a href="/posts/2021-08-07_start-journey-into-the/">Start a journey into the .NET Profiling APIs</a></li>
+<li>Episode 2: <a href="/posts/2021-09-06_dealing-with-modules-assemblie/">Dealing with Modules, Assemblies and Types with CLR profiling API</a></li>
+<li>Episode 3: <a href="/posts/2021-10-12_decyphering-method-signature-w/">Decyphering methods signature with .NET Profiling APIs</a></li>
+<li>Episode 4: <a href="/posts/2021-11-16_reading-parameters-value-with/">Reading parameters value with the .NET Profiling APIs</a></li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2022-01-28_troubleshooting-net-performanc/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Troubleshooting .NET performance issues with Datadog toolbox</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2021-11-16_reading-parameters-value-with/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Reading parameters value with the .NET Profiling APIs</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

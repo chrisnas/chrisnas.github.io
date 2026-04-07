@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Fixing .NET middle-age crisis with Java ReferenceQueue and Cleaner | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C#, .NET, GC, HTTP">
+<meta name="description" content="See how to implement Java patterns in C# to solve the “middle-age crisis“ issue with .NET garbage collector">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2019-01-16_fixing-net-middle-age/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2019-01-16_fixing-net-middle-age/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      Fixing .NET middle-age crisis with Java ReferenceQueue and Cleaner
+    </h1>
+    <div class="post-description">
+      See how to implement Java patterns in C# to solve the “middle-age crisis“ issue with .NET garbage collector
+    </div>
+    <div class="post-meta"><span title='2019-01-16 15:07:01.253 +0000 UTC'>January 16, 2019</span>&nbsp;·&nbsp;<span>11 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2019-01-16_fixing-net-middle-age/1_Asj0272CtE0YBUC81pX_FA.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#mix-a-phantom-with-idisposable" aria-label="Mix a Phantom with IDisposable">Mix a Phantom with IDisposable</a></li>
+                <li>
+                    <a href="#introducing-the-cleaner-a-lajava" aria-label="Introducing the Cleaner a la Java">Introducing the Cleaner a la Java</a></li>
+                <li>
+                    <a href="#stay-in-control-of-the-cleanerjob" aria-label="Stay in control of the cleaner job">Stay in control of the cleaner job</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<p><img loading="lazy" src="/posts/2019-01-16_fixing-net-middle-age/1_Asj0272CtE0YBUC81pX_FA.png"></p>
+<p>My colleague Kevin has just described <a href="https://medium.com/@kevingosse/implementing-java-referencequeue-and-phantomreference-in-c-827d7141b6e4">how to implement Java ReferenceQueue in C#</a> as a follow-up to <a href="http://tooslowexception.com/do-we-need-jvms-phantomreference-in-net/">Konrad Kokosa’s article</a> on this Java class. Among the different discussed features, one is still missing. This post will discuss how to deal with the “middle age crisis” scenario and control finalizer threading issues. I’m sure that my former Microsoft colleague <a href="https://twitter.com/sbovo">Sebastien</a> won’t be surprised by my interest in the subject.</p>
+<p>When a class references both <code>IDisposable</code> instances and native resources, the usual C# pattern is to implement both <code>IDisposable</code> for explicit cleanup and a Finalizer to deal with developers who would have forgotten the explicit cleanup. This pattern might have a side effect when these classes are also referencing a large objects graph.</p>
+<p>Let’s take a minute to describe how finalizers are managed by the CLR</p>
+<p>This animation shows what happens at the end of a collection. The darkened objects are no more referenced and should be collected. B, G and H do not implement finalizers so that could be discarded. It is different for E, I and J because their classes implement a finalizer. First, a <em>Finalization</em> list was holding a “weak” reference to them since they were created. Then, at the end of a collection, these references are moved to the <em>FReacheable</em> queue and the collection ends. Later on, after the collection ends, the finalizer thread wakes up and calls the finalizer of all objects referenced by the <em>FReacheable</em> queue. This is the important part of the issue: it means that even though those objects weren’t referenced anymore, they couldn’t be collected nor their memory be reclaimed because the finalizer thread has not run yet. As they could not be reclaimed, they are promoted to the next generation just like other survivors. So if those objects were in generation 0, they now end up in generation 1, extending their lifetime. It’s even worse if they get promoted from generation 1 to generation 2, as the next gen 2 collection might happen only very far in the future. This artificially increases the memory consumption of the application.</p>
+<p>To summarize, in case of business objects that hold a large references tree with also native resources, it would be great to be able to:</p>
+<ul>
+<li>Allow explicit cleanup resources with the <code>IDisposable</code> pattern</li>
+<li>Discard the managed memory when the objects are collected</li>
+<li>Automatically cleanup native resources AFTER they are collected</li>
+<li>Have control on the thread that is cleaning up native resources</li>
+</ul>
+<h2 id="mix-a-phantom-with-idisposable">Mix a Phantom with IDisposable<a hidden class="anchor" aria-hidden="true" href="#mix-a-phantom-with-idisposable">#</a></h2>
+<p>The requirement #3 seems impossible to fulfill: how to access to field of an object if its memory has been reclaimed? Maybe it is possible to cheat: what if these native resources usually held as <code>IntPtr</code> field would be copied when the object is still alive? That way, the cleanup code could be moved outside of the object itself. This is basically the <code>PhantomReference</code> Java idea implemented in C# by Kevin with his <code>PhantomObjectFinalizer</code>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">PhantomObjectFinalizer</span> <span class="p">:</span> <span class="n">PhantomReference</span><span class="p">&lt;</span><span class="n">LargeObject</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kt">int</span> <span class="n">_handle</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">PhantomObjectFinalizer</span><span class="p">(</span><span class="n">ReferenceQueue</span><span class="p">&lt;</span><span class="n">LargeObject</span><span class="p">&gt;</span> <span class="n">queue</span><span class="p">,</span> <span class="n">LargeObject</span> <span class="k">value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">:</span> <span class="k">base</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="k">value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_handle</span> <span class="p">=</span> <span class="k">value</span><span class="p">.</span><span class="n">Handle</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="k">void</span> <span class="n">FinalizeResources</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;I&#39;m cleaning handle &#34;</span> <span class="p">+</span> <span class="n">_handle</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Let’s make it generic in term of native payload:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">PhantomObjectFinalizer</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">&gt;</span> <span class="p">:</span> <span class="n">PhantomReference</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;</span> <span class="k">where</span> <span class="n">T</span> <span class="p">:</span> <span class="k">class</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">S</span> <span class="n">State</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">PhantomObjectFinalizer</span><span class="p">(</span><span class="n">ReferenceQueue</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;</span> <span class="n">queue</span><span class="p">,</span> <span class="n">T</span> <span class="k">value</span><span class="p">,</span> <span class="n">S</span> <span class="n">state</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">:</span> <span class="k">base</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="k">value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">State</span> <span class="p">=</span> <span class="n">state</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Also note that the cleaning method has been removed due to the requirement #1: the <code>LargeObject</code>should be responsible for cleaning the resources because it will also implements <code>IDisposable</code>. The cleaning native part will obviously be shared with the <code>Dispose</code> method.</p>
+<p>The <code>LargeObject</code> could be rewritten to use it and the first step is group native resources in a state:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">LargeObject</span> <span class="p">:</span> <span class="n">IDisposable</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">    <span class="k">class</span> <span class="nc">NativeState</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kd">public</span> <span class="kt">bool</span> <span class="n">_disposed</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="kd">public</span> <span class="n">IntPtr</span> <span class="n">_handle1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="kd">public</span> <span class="n">IntPtr</span> <span class="n">_handle2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">NativeState</span> <span class="n">_state</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Plus some heavy stuff that we don&#39;t want to keep around once the object </span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// is no more referenced</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">LargeObject</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_state</span> <span class="p">=</span> <span class="k">new</span> <span class="n">NativeState</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_handle1</span> <span class="p">=</span> <span class="p">(</span><span class="n">IntPtr</span><span class="p">)</span> <span class="p">(</span><span class="n">DateTime</span><span class="p">.</span><span class="n">Now</span><span class="p">.</span><span class="n">Ticks</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_handle2</span> <span class="p">=</span> <span class="p">(</span><span class="n">IntPtr</span><span class="p">)</span> <span class="p">(</span><span class="n">DateTime</span><span class="p">.</span><span class="n">Now</span><span class="p">.</span><span class="n">Ticks</span> <span class="p">+</span> <span class="m">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">        <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// this is where we imagine using a PhantomObjectFinalizer </span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="k">void</span> <span class="n">Dispose</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">_state</span><span class="p">.</span><span class="n">_disposed</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">Cleanup</span><span class="p">(</span><span class="n">_state</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">CleanupIDisposableFields</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">void</span> <span class="n">CleanupIDisposableFields</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// call Dispose on all IDisposable fields</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kd">static</span> <span class="k">void</span> <span class="n">Cleanup</span><span class="p">(</span><span class="n">NativeState</span> <span class="n">state</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">_disposed</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">state</span><span class="p">.</span><span class="n">_disposed</span> <span class="p">=</span> <span class="kc">true</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;cleanup native resource {state._handle1.ToString()}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">$&#34;cleanup native resource {state._handle2.ToString()}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">throw</span> <span class="k">new</span> <span class="n">InvalidOperationException</span><span class="p">(</span><span class="s">&#34;I messed up the cleaning...&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The native payload is stored in a <code>NativeState</code> object that also contains the <code>_disposed</code> <code>IDisposable</code>status. This is required to be able to know if the object has been disposed explicitly when the static <code>Cleanup</code> method is called. This implementation fulfills the requirement #1 even though the cleanup code is throwing an exception: we will have to see how to control it.</p>
+<h2 id="introducing-the-cleaner-a-lajava">Introducing the Cleaner a la Java<a hidden class="anchor" aria-hidden="true" href="#introducing-the-cleaner-a-lajava">#</a></h2>
+<p>The next step is to focus on requirements #2 and #3: how to ensure that our <code>LargeObject</code> memory gets reclaimed by the garbage collector but still automatically cleanup the native resources? This scenario is handled by the <a href="https://docs.oracle.com/javase/9/docs/api/java/lang/ref/Cleaner.html">Cleaner class in Java</a> mentioned reading <a href="http://tooslowexception.com/do-we-need-jvms-phantomreference-in-net/">Konrad’s article</a> and that I have learnt to know better by discussing at length with <a href="https://twitter.com/jpbempel">Jean-Philippe</a>, our team Java internals expert.</p>
+<p>You can register an object, a state and a callback that will be called when the object is no more referenced. It is a kind of secondary finalization mechanism.</p>
+<p>Let’s see how I would like to use it in C#:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">LargeObject</span> <span class="p">:</span> <span class="n">IDisposable</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kd">static</span> <span class="k">readonly</span> <span class="n">Cleaner</span><span class="p">&lt;</span><span class="n">LargeObject</span><span class="p">,</span> <span class="n">NativeState</span><span class="p">&gt;</span> <span class="n">_cleaner</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">static</span> <span class="n">LargeObject</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_cleaner</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Cleaner</span><span class="p">&lt;</span><span class="n">LargeObject</span><span class="p">,</span> <span class="n">NativeState</span><span class="p">&gt;(</span><span class="n">Cleanup</span><span class="p">,</span> <span class="n">OnError</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">NativeState</span> <span class="n">_state</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// Plus some heavy stuff that we don&#39;t want to keep around once the object is no more referenced</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">LargeObject</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_state</span> <span class="p">=</span> <span class="k">new</span> <span class="n">NativeState</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_handle1</span> <span class="p">=</span> <span class="p">(</span><span class="n">IntPtr</span><span class="p">)</span> <span class="p">(</span><span class="n">DateTime</span><span class="p">.</span><span class="n">Now</span><span class="p">.</span><span class="n">Ticks</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_handle2</span> <span class="p">=</span> <span class="p">(</span><span class="n">IntPtr</span><span class="p">)</span> <span class="p">(</span><span class="n">DateTime</span><span class="p">.</span><span class="n">Now</span><span class="p">.</span><span class="n">Ticks</span> <span class="p">+</span> <span class="m">1</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">        <span class="p">};</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">_cleaner</span><span class="p">.</span><span class="n">Track</span><span class="p">(</span><span class="k">this</span><span class="p">,</span> <span class="n">_state</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>There will be a unique <code>Cleaner</code> object for all <code>LargeObject</code> instances. Each one will register itself and its native state in its constructor by calling the <code>Cleaner.Track</code> method.</p>
+<p>The <code>Cleaner</code> instance receives two static callbacks:</p>
+<ul>
+<li><strong>Cleanup</strong>: this method will be called by the cleaner after a tracked <code>LargeObject</code> instance has been collected. As you can see, there is no need to change its initial implementation. It was static and receives the <code>NativeState</code> that stores the native state of a <code>LargeObject</code>. Since the <code>NativeState</code> type is a private inner class, the implementation details does not leak from <code>LargeObject</code> like it was the case with Kevin’s <code>PhantomObjectFinalizer</code> implementation.</li>
+<li><strong>OnError</strong>: when an exception occurs during the cleanup (like my naïve implementation did by throwing an <code>InvalidOperationException</code>), the method gets called. This is a new feature compared to a .NET finalizer: you are notified if something goes wrong and you are able to log it. However, I would recommend to still exit the application like the default CLR behavior when a finalizer throws an exception.</li>
+</ul>
+<p>The <code>LargeObject</code> code is therefore responsible for cleaning both <code>IDisposable</code>and native resources: no need for its users to know the gory details.</p>
+<p>The high-level API of the <code>Cleaner</code> class has been defined; it is now time to see how to implement it. If you have read <a href="https://medium.com/@kevingosse/implementing-java-referencequeue-and-phantomreference-in-c-827d7141b6e4">Kevin’s post</a>, the first step should be obvious: a <code>ReferenceQueue</code> will keep track of the <code>PhantomObjectFinalizer</code> bound to each “business object” like <code>LargeObject</code>. When the latter is collected, the phantom finalizer gets called to enqueue itself to the <code>ReferenceQueue</code>.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="cs">///   T is the type to finalize</span>
+</span></span><span class="line"><span class="cl"><span class="cs">///   S contains the native state of T to be cleaned up</span>
+</span></span><span class="line"><span class="cl"><span class="cs">/// This separation enforces the pattern where the &#34;native&#34; part stored by a managed type is kept in a State</span>
+</span></span><span class="line"><span class="cl"><span class="cs">/// The state could even be used as is in T (kind of a SafeHandle holding several native resources)</span>
+</span></span><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">Cleaner</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">&gt;</span> 
+</span></span><span class="line"><span class="cl">    <span class="k">where</span> <span class="n">T</span> <span class="p">:</span> <span class="k">class</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">readonly</span> <span class="n">ReferenceQueue</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;</span> <span class="n">_queue</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">Cleaner</span><span class="p">(</span><span class="n">Action</span><span class="p">&lt;</span><span class="n">S</span><span class="p">&gt;</span> <span class="n">onCleanup</span><span class="p">,</span> <span class="n">Action</span><span class="p">&lt;</span><span class="n">Exception</span><span class="p">&gt;</span> <span class="n">onError</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_onCleanup</span> <span class="p">=</span> <span class="n">onCleanup</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_onError</span> <span class="p">=</span> <span class="n">onError</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">_queue</span> <span class="p">=</span> <span class="k">new</span> <span class="n">ReferenceQueue</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">Action</span><span class="p">&lt;</span><span class="n">S</span><span class="p">&gt;</span> <span class="n">_onCleanup</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">Action</span><span class="p">&lt;</span><span class="n">Exception</span><span class="p">&gt;</span> <span class="n">_onError</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="k">void</span> <span class="n">Track</span><span class="p">(</span><span class="n">T</span> <span class="k">value</span><span class="p">,</span> <span class="n">S</span> <span class="n">state</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">phantomReference</span> <span class="p">=</span> <span class="k">new</span> <span class="n">PhantomObjectFinalizer</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">&gt;(</span><span class="n">_queue</span><span class="p">,</span> <span class="k">value</span><span class="p">,</span> <span class="n">state</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>There is one big missing step: who will call the queue <code>Poll</code> method to get the finalized <code>PhantomObjectFinalizer</code> that contains the native state to cleanup?</p>
+<h2 id="stay-in-control-of-the-cleanerjob">Stay in control of the cleaner job<a hidden class="anchor" aria-hidden="true" href="#stay-in-control-of-the-cleanerjob">#</a></h2>
+<p>The simple implementation I’ve chosen is to create a dedicated thread that will poll the queue every period you want and call the cleanup callback. I did not want to add pressure on the <code>ThreadPool</code> that is shared with the application. If an exception is raised, the error callback will be called.</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">Cleaner</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">&gt;</span> 
+</span></span><span class="line"><span class="cl">    <span class="k">where</span> <span class="n">T</span> <span class="p">:</span> <span class="k">class</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="kd">const</span> <span class="kt">int</span> <span class="n">DefaultCleanupPeriod</span> <span class="p">=</span> <span class="m">1000</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">Action</span><span class="p">&lt;</span><span class="n">S</span><span class="p">&gt;</span> <span class="n">_onCleanup</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="n">Action</span><span class="p">&lt;</span><span class="n">Exception</span><span class="p">&gt;</span> <span class="n">_onError</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">readonly</span> <span class="n">ReferenceQueue</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;</span> <span class="n">_queue</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">readonly</span> <span class="n">Thread</span> <span class="n">_cleanerThread</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">readonly</span> <span class="n">ManualResetEvent</span> <span class="n">_exitEvent</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">readonly</span> <span class="kt">int</span> <span class="n">_cleanupPeriod</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="n">Cleaner</span><span class="p">(</span><span class="n">Action</span><span class="p">&lt;</span><span class="n">S</span><span class="p">&gt;</span> <span class="n">onCleanup</span><span class="p">,</span> <span class="n">Action</span><span class="p">&lt;</span><span class="n">Exception</span><span class="p">&gt;</span> <span class="n">onError</span><span class="p">,</span> <span class="kt">int</span> <span class="n">cleanupPeriod</span> <span class="p">=</span> <span class="n">DefaultCleanupPeriod</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_onCleanup</span> <span class="p">=</span> <span class="n">onCleanup</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_onError</span> <span class="p">=</span> <span class="n">onError</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_cleanupPeriod</span> <span class="p">=</span> <span class="n">cleanupPeriod</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">_queue</span> <span class="p">=</span> <span class="k">new</span> <span class="n">ReferenceQueue</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">_exitEvent</span> <span class="p">=</span> <span class="k">new</span> <span class="n">ManualResetEvent</span><span class="p">(</span><span class="kc">false</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_cleanerThread</span> <span class="p">=</span> <span class="k">new</span> <span class="n">Thread</span><span class="p">(</span><span class="n">PeriodicCleanup</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_cleanerThread</span><span class="p">.</span><span class="n">IsBackground</span> <span class="p">=</span> <span class="kc">true</span><span class="p">;</span> <span class="c1">// allow process exit even though the thread is still running</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_cleanerThread</span><span class="p">.</span><span class="n">Start</span><span class="p">(</span><span class="k">this</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">private</span> <span class="k">void</span> <span class="n">PeriodicCleanup</span><span class="p">(</span><span class="kt">object</span> <span class="n">parameter</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Cleaner</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">&gt;</span> <span class="n">cleaner</span> <span class="p">=</span> <span class="p">(</span><span class="n">Cleaner</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">&gt;)</span> <span class="n">parameter</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">while</span> <span class="p">(</span><span class="kc">true</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="kt">var</span> <span class="n">exit</span> <span class="p">=</span> <span class="n">_exitEvent</span><span class="p">.</span><span class="n">WaitOne</span><span class="p">(</span><span class="n">cleaner</span><span class="p">.</span><span class="n">_cleanupPeriod</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="k">if</span> <span class="p">(</span><span class="n">exit</span><span class="p">)</span> <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">            <span class="k">try</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">PhantomReference</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;</span> <span class="n">reference</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">                <span class="k">while</span> <span class="p">((</span><span class="n">reference</span> <span class="p">=</span> <span class="n">_queue</span><span class="p">.</span><span class="n">Poll</span><span class="p">())</span> <span class="p">!=</span> <span class="kc">null</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">                <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                    <span class="kt">var</span> <span class="n">finalizedReference</span> <span class="p">=</span> <span class="p">(</span><span class="n">PhantomObjectFinalizer</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">&gt;)</span> <span class="n">reference</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">                    <span class="c1">// cleanup native fields</span>
+</span></span><span class="line"><span class="cl">                    <span class="n">_onCleanup</span><span class="p">(</span><span class="n">finalizedReference</span><span class="p">.</span><span class="n">State</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">                <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">            <span class="k">catch</span> <span class="p">(</span><span class="n">Exception</span> <span class="n">x</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">            <span class="p">{</span>
+</span></span><span class="line"><span class="cl">                <span class="n">_onError</span><span class="p">(</span><span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="k">void</span> <span class="n">Track</span><span class="p">(</span><span class="n">T</span> <span class="k">value</span><span class="p">,</span> <span class="n">S</span> <span class="n">state</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">phantomReference</span> <span class="p">=</span> <span class="k">new</span> <span class="n">PhantomObjectFinalizer</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">S</span><span class="p">&gt;(</span><span class="n">_queue</span><span class="p">,</span> <span class="k">value</span><span class="p">,</span> <span class="n">state</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="k">void</span> <span class="n">Untrack</span><span class="p">(</span><span class="n">T</span> <span class="k">value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_queue</span><span class="p">.</span><span class="n">Untrack</span><span class="p">(</span><span class="k">value</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">public</span> <span class="k">void</span> <span class="n">Dispose</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_exitEvent</span><span class="p">.</span><span class="n">Set</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Since I’ve created the thread as a background thread, it won’t block .NET to exit the process when the last foreground thread returns. However, you are free to follow the <code>IDisposable</code> pattern, and call <code>Dispose</code> to explicitly stop the cleaning thread at the right time of your application lifecycle.</p>
+<p>In the <code>IDisposable</code>/finalizer pattern, the <code>GC</code> class provides the <code>SuppressFinalize</code> static method to remove an object when it has been explicitly disposed: that way, the object won’t go to the <em>FReacheable</em> queue nor be promoted into the next generation after it is collected. The Cleaner class provides the <code>Untrack</code> method to achieve the same effect: the object native payload won’t be cleaned up. I just had to update the <code>ReferenceQueue</code> to remove the object from the <code>ConditionalWeakTable</code> and remove the <code>PhantomReference</code> from the <em>FinalizationList</em>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">public</span> <span class="k">class</span> <span class="nc">ReferenceQueue</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">where</span> <span class="n">T</span> <span class="p">:</span> <span class="k">class</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">internal</span> <span class="k">void</span> <span class="n">Track</span><span class="p">(</span><span class="n">T</span> <span class="k">value</span><span class="p">,</span> <span class="n">PhantomReference</span><span class="p">&lt;</span><span class="n">T</span><span class="p">&gt;</span> <span class="n">reference</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">_table</span><span class="p">.</span><span class="n">Add</span><span class="p">(</span><span class="k">value</span><span class="p">,</span> <span class="n">reference</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">internal</span> <span class="k">void</span> <span class="n">Untrack</span><span class="p">(</span><span class="n">T</span> <span class="k">value</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span> <span class="p">(</span><span class="n">_table</span><span class="p">.</span><span class="n">TryGetValue</span><span class="p">(</span><span class="k">value</span><span class="p">,</span> <span class="k">out</span> <span class="kt">var</span> <span class="n">reference</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">_table</span><span class="p">.</span><span class="n">Remove</span><span class="p">(</span><span class="k">value</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">            <span class="n">GC</span><span class="p">.</span><span class="n">SuppressFinalize</span><span class="p">(</span><span class="n">reference</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The requirement #4 is now fulfilled. You are obviously free to pick another implementation more suitable to your needs than a thread-based periodic cleanup. I would like to mention that if the cleanup callback never returns, the effect is almost the same as in the case of a stuck finalizer: the native resources won’t be cleaned up anymore.</p>
+<p>The following code shows how all this “complicated” code does not leak in a C# application:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">Program</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kd">static</span> <span class="k">void</span> <span class="n">Main</span><span class="p">(</span><span class="kt">string</span><span class="p">[]</span> <span class="n">args</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="n">InnerScope</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">GC</span><span class="p">.</span><span class="n">Collect</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">GC</span><span class="p">.</span><span class="n">WaitForPendingFinalizers</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">(</span><span class="s">&#34;Done&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">Console</span><span class="p">.</span><span class="n">ReadLine</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// use the following code to explicitly stop the cleaner thread</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">//LargeObject.DisposeCleaner();</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// the code is working without this call because the ticking thread</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// is a background thread and won&#39;t stop the CLR to exit the process</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="kd">static</span> <span class="k">void</span> <span class="n">InnerScope</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">largeObject</span> <span class="p">=</span> <span class="k">new</span> <span class="n">LargeObject</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="c1">// it is also possible to support explicit disposing</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// var largeObject2 = new LargeObject();</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// largeObject2.Dispose();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">GC</span><span class="p">.</span><span class="n">Collect</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="n">GC</span><span class="p">.</span><span class="n">WaitForPendingFinalizers</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">GC</span><span class="p">.</span><span class="n">KeepAlive</span><span class="p">(</span><span class="n">largeObject</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>And you get the expected output:</p>
+<p><img loading="lazy" src="/posts/2019-01-16_fixing-net-middle-age/1_OOmONmrq6gaVEHbJeEnZTw.png"></p>
+<p>Maybe <a href="https://twitter.com/konradkokosa">Konrad</a> will integrate a smarter Java <code>Cleaner</code>-like feature within the CLR itself or <a href="https://twitter.com/xoofx">Alexandre</a> in his new .NET ;^)</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/http/">HTTP</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2019-02-12_building-your-own-java/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Building your own Java-like GC logs in .NET</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2018-12-15_spying-on-net-garbage/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Spying on .NET Garbage Collector with TraceEvent</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>

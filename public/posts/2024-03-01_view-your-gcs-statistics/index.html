@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto" data-theme="auto">
+
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="noindex, nofollow">
+<title>View your GCs statistics live with dotnet-gcstats! | Welcome to Christophe Nasarre&#39;s Blog</title>
+<meta name="keywords" content="C&#43;&#43;, C#, .NET, GC, debugging, performance, diagnostics, memory, dotnet-tools">
+<meta name="description" content="Discover how to look at the .NET GC statistics to better understand your garbage collections">
+<meta name="author" content="Christophe Nasarre">
+<link rel="canonical" href="http://localhost:1313/posts/2024-03-01_view-your-gcs-statistics/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.49bbb77ae0516f28856b2087823cb12291eae6aae1ade31973dd2ac43f37de2f.css" integrity="sha256-Sbu3euBRbyiFayCHgjyxIpHq5qrhreMZc90qxD833i8=" rel="preload stylesheet" as="style">
+<link rel="icon" href="http://localhost:1313/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://localhost:1313/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://localhost:1313/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://localhost:1313/apple-touch-icon.png">
+<link rel="mask-icon" href="http://localhost:1313/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="en" href="http://localhost:1313/posts/2024-03-01_view-your-gcs-statistics/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            .list::-webkit-scrollbar-thumb {
+                border-color: var(--code-bg);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="nav">
+        <div class="logo">
+            
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://localhost:1313/" title="Home">
+                    <span>Home</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/search/" title="Search (Alt &#43; /)" accesskey=/>
+                    <span>Search</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://localhost:1313/about/" title="About">
+                    <span>About</span>
+                </a>
+            </li>
+            <li>
+                <button id="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://localhost:1313/">Home</a>&nbsp;»&nbsp;<a href="http://localhost:1313/posts/">Posts</a></div>
+    <h1 class="post-title entry-hint-parent">
+      View your GCs statistics live with dotnet-gcstats!
+    </h1>
+    <div class="post-description">
+      Discover how to look at the .NET GC statistics to better understand your garbage collections
+    </div>
+    <div class="post-meta"><span title='2024-03-01 18:30:13.024 +0000 UTC'>March 1, 2024</span>&nbsp;·&nbsp;<span>7 min</span>&nbsp;·&nbsp;<span>Christophe Nasarre</span>
+
+</div>
+  </header> 
+<figure class="entry-cover">
+            <img loading="eager" src="http://localhost:1313/posts/2024-03-01_view-your-gcs-statistics/1_3oHvH2Vxb3PgW46khVMSMQ.png" alt="">
+        
+</figure><div class="toc">
+    <details >
+        <summary accesskey="c" title="(Alt + C)">
+            <span class="details">Table of Contents</span>
+        </summary>
+
+        <div class="inner"><ul>
+                <li>
+                    <a href="#introduction" aria-label="Introduction">Introduction</a></li>
+                <li>
+                    <a href="#high-level-view-of-gc-internals" aria-label="High level view of GC Internals">High level view of GC Internals</a></li>
+                <li>
+                    <a href="#which-generation-to-collect--condemned-generation" aria-label="Which generation to collect = condemned generation">Which generation to collect = condemned generation</a></li>
+                <li>
+                    <a href="#building-your-owntool" aria-label="Building your own tool">Building your own tool</a>
+                </li>
+            </ul>
+        </div>
+    </details>
+</div>
+
+  <div class="post-content"><hr>
+<h2 id="introduction">Introduction<a hidden class="anchor" aria-hidden="true" href="#introduction">#</a></h2>
+<p>While working on the second edition of <a href="https://www.amazon.com/Pro-NET-Memory-Management-Performance/dp/148424026X">Pro .NET Memory Management</a>, it was needed to get statistics about each garbage collection to explain the condemned generation and other decisions taken by the GC. This post explains the different internal data structures used by the GC and how to get their value for each collection. Some require debugging the CLR and others are emitted via events. For the latter, I will show how I wrote the new <strong>dotnet-gcstats</strong> CLI tool to collect them and a personal Perfview GCStats displaying live data, garbage collection after garbage collection.</p>
+<h2 id="high-level-view-of-gc-internals">High level view of GC Internals<a hidden class="anchor" aria-hidden="true" href="#high-level-view-of-gc-internals">#</a></h2>
+<p>With regions, the GC keeps track of managed memory allocated by your application in instances of the <strong>gc_heap</strong> class. In Workstation mode, only 1 instance exists and in Server mode, by default, 1 instance is created per core. Each <strong>gc_heap</strong> keeps track of its 5 generations (gen0, gen1, gen2, Large Object Heap and Pinned Object Heap) in an array of 5 <strong>generation</strong> instances. Each generation references its dedicated regions wrapped by instances of <strong>heap_segment</strong>. These regions are reserved from a giant part of the process address space and committed as needed.</p>
+<p><img loading="lazy" src="/posts/2024-03-01_view-your-gcs-statistics/1_RVd5JiSJBJzqCqqYjUJBog.png"></p>
+<p>During a garbage collection, the GC code relies on global fields per <strong>gc_heap</strong>:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">static</span> <span class="n">gc_mechanisms</span> <span class="n">settings</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">gc_history_global</span> <span class="n">gc_data_global</span><span class="p">;</span>  <span class="c1">// for non background GC including foreground GC during a background
+</span></span></span><span class="line"><span class="cl"><span class="n">gc_history_global</span> <span class="n">bgc_data_global</span><span class="p">;</span> <span class="c1">// for background GC only
+</span></span></span><span class="line"><span class="cl"><span class="k">static</span> <span class="n">dynamic_data</span> <span class="n">dynamic_data_table</span><span class="p">[</span><span class="n">total_generation_count</span> <span class="o">=</span> <span class="mi">5</span><span class="p">];</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>The <strong>settings</strong> field contains a few interesting fields:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">gc_mechanisms</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">gc_index</span><span class="p">;</span> <span class="c1">// starts from 1 for the first GC
+</span></span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">condemned_generation</span><span class="p">;</span>  <span class="c1">// generation to collect
+</span></span></span><span class="line"><span class="cl">    <span class="n">BOOL</span> <span class="n">compaction</span><span class="p">;</span>  <span class="c1">// true when compaction instead of sweep
+</span></span></span><span class="line"><span class="cl">    <span class="n">BOOL</span> <span class="n">loh_compaction</span><span class="p">;</span>  <span class="c1">// true when LOH needs compaction
+</span></span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">concurrent</span><span class="p">;</span>  <span class="c1">// 1 = concurrent/background GC 
+</span></span></span><span class="line"><span class="cl">    <span class="n">gc_reason</span> <span class="n">reason</span><span class="p">;</span>  <span class="c1">// trigger reason
+</span></span></span><span class="line"><span class="cl">    <span class="n">gc_pause_mode</span> <span class="n">pause_mode</span><span class="p">;</span>  <span class="c1">// see GCSettings.LatencyMode
+</span></span></span><span class="line"><span class="cl">    <span class="p">...</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>including the trigger reason that will tell if your code called <strong>GC.Collect</strong> (i.e. induced), or if it was due to a LOH or SOH allocation for example. If <strong>compaction</strong> is true, a compacting GC will happen (instead of a sweeping one).</p>
+<p>The <strong>gc/bgc_data_global</strong> contains almost the same information:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span><span class="lnt">7
+</span><span class="lnt">8
+</span><span class="lnt">9
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">struct</span> <span class="nc">gc_history_global</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">num_heaps</span><span class="p">;</span>  <span class="c1">// number of gc_heap instances
+</span></span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">condemned_generation</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">gc_reason</span> <span class="n">reason</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">pause_mode</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">mem_pressure</span><span class="p">;</span> 
+</span></span><span class="line"><span class="cl">    <span class="kt">uint32_t</span> <span class="n">global_mechanisms_p</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Most of the fields are available from different events:</p>
+<ul>
+<li><strong>GCStart</strong>: <strong>gc_index</strong> in <strong>Count</strong>, <strong>condemned_generation</strong> in <strong>Depth</strong>, <strong>reason</strong> in <strong>Reason</strong></li>
+<li><strong>GCGlobalHeapHistory</strong>: <strong>pause_mode</strong> in <strong>PauseMode</strong> and some others in <strong>GlobalMechanisms</strong></li>
+</ul>
+<h2 id="which-generation-to-collect--condemned-generation">Which generation to collect = condemned generation<a hidden class="anchor" aria-hidden="true" href="#which-generation-to-collect--condemned-generation">#</a></h2>
+<p>The computation of the <strong>condemned_generation</strong> is complicated and relies on many factors including metrics stored for each “generation” (gen0, gen1, gen2, LOH and POH) in an array of <a href="https://github.com/dotnet/runtime/blob/main/src/coreclr/gc/gcpriv.h#L1058"><strong>dynamic_data</strong></a> called <a href="https://github.com/dotnet/runtime/blob/main/src/coreclr/gc/gcpriv.h#L3627"><strong>dynamic_data_table</strong></a>. The <strong>dynamic_data</strong> class contains a few fields used by the GC to take decisions such as when a collection should be triggered and which generation to condemn:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="k">class</span> <span class="nc">dynamic_data</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl"><span class="k">public</span><span class="o">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ptrdiff_t</span> <span class="n">new_allocation</span><span class="p">;</span>     <span class="c1">// remaining budget = budget - allocated
+</span></span></span><span class="line"><span class="cl">    <span class="n">size_t</span>    <span class="n">desired_allocation</span><span class="p">;</span> <span class="c1">// budget to trigger a GC
+</span></span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// # of bytes taken by survived objects after mark.
+</span></span></span><span class="line"><span class="cl">    <span class="n">size_t</span>    <span class="n">survived_size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// # of bytes taken by survived pinned plugs after mark.
+</span></span></span><span class="line"><span class="cl">    <span class="n">size_t</span>    <span class="n">pinned_survived_size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1">// total object size after a GC, ie, doesn&#39;t include fragmentation
+</span></span></span><span class="line"><span class="cl">    <span class="n">size_t</span>    <span class="n">current_size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">size_t</span>    <span class="n">promoted_size</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">size_t</span>    <span class="n">fragmentation</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Most of these fields are found in the payload of <a href="https://github.com/dotnet/runtime/blob/main/src/coreclr/vm/ClrEtwAll.man#L1296">GCPerHeapHistory</a> or <a href="https://github.com/dotnet/runtime/blob/main/src/coreclr/vm/ClrEtwAll.man#L962">GCHeapStat</a> events. However, the most interesting one, <strong>new_allocation</strong> is not available. Why is it interesting? Because it would give you which generation had its budget exceeded. It is initialized with the generation budget at the end of a GC and then, each time an allocation context gets created, its size is deducted from it. When it reaches 0, it means that the budget is exceeded, and a collection should happen.</p>
+<p>Since I needed to debug the CLR to better understand all these algorithms, I added a breakpoint at the beginning of <strong>gc_heap::garbage_collect</strong> with the following action:</p>
+<pre tabindex="0"><code>#{settings.gc_index}[{gc_trigger_reason}]{&#34;\n&#34;,s8b} new_allocation(0) = {dynamic_data_table[0].new_allocation}{&#34;\n&#34;,s8b} desired_allocation(0) = {dynamic_data_table[0].desired_allocation}{&#34;\n&#34;,s8b} begin_data_size(0) = {dynamic_data_table[0].begin_data_size}{&#34;\n&#34;,s8b} promoted_size(0) = {dynamic_data_table[0].promoted_size}{&#34;\n&#34;,s8b}-{&#34;\n&#34;,s8b} new_allocation(1) = 
+...
+{dynamic_data_table[4].new_allocation}{&#34;\n&#34;,s8b} desired_allocation(4) = {dynamic_data_table[4].desired_allocation}{&#34;\n&#34;,s8b} begin_data_size(4) = {dynamic_data_table[4].begin_data_size}{&#34;\n&#34;,s8b} promoted_size(4) = {dynamic_data_table[4].promoted_size}{&#34;\n&#34;,s8b}__________{&#34;\n&#34;,s8b}
+</code></pre><p>And now, each time a GC happens, I get the corresponding log in my Output pane in Visual Studio:</p>
+<pre tabindex="0"><code>#2[reason_alloc_soh (0)]
+ new_allocation(0) = -22728
+ desired_allocation(0) = 134217728
+ begin_data_size(0) = 8391376
+ promoted_size(0) = 8383432
+-
+ new_allocation(1) = -5910416
+ desired_allocation(1) = 2473016
+ begin_data_size(1) = 375528
+ promoted_size(1) = 353288
+-
+ new_allocation(2) = -91144
+ desired_allocation(2) = 262144
+ begin_data_size(2) = 0
+ promoted_size(2) = 0
+-
+ new_allocation(3) = 28000088
+ desired_allocation(3) = 28000088
+ begin_data_size(3) = 8000024
+ promoted_size(3) = 8000024
+-
+ new_allocation(4) = 3145728
+ desired_allocation(4) = 3145728
+ begin_data_size(4) = 32712
+ promoted_size(4) = 32712
+</code></pre><p>As you can see, gen0, gen1 and gen2 have all their budget exceeded (i.e. their <strong>new_allocation</strong> is negative) and it explains why a simple gen0 collection (from allocation in SOH = gen0) becomes a gen2 collection. If you wonder how gen1 and gen2 budgets are exceeded as your application is only allocating in gen0, you need to understand that when a GC copy surviving objects from one younger generation to the older, they are counted as allocations in the older and subtracted from its <strong>new_allocation</strong> metric.</p>
+<p>The GC is encoding the different steps leading to the final condemned generation in a 32 bit value stored in a <strong>gen_to_condemn_tuning</strong> field that allows you to get:</p>
+<ul>
+<li>initial condemned generation,</li>
+<li>final generation to condemn,</li>
+<li>which generation’s budget is exceeded.</li>
+</ul>
+<p>The value of the last one corresponds to the highest generation for which its <strong>new_allocation</strong> was negative.</p>
+<p>This information is available in the <strong>CondemnReasons0</strong> field of the <strong>GCPerHeapHistory</strong> event, and you need some arithmetic to get the generation you want:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">const</span> <span class="kt">int</span> <span class="n">gen_initial</span> <span class="p">=</span> <span class="m">0</span><span class="p">;</span>          <span class="c1">// indicates the initial gen to condemn.</span>
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">const</span> <span class="kt">int</span> <span class="n">gen_final_per_heap</span> <span class="p">=</span> <span class="m">1</span><span class="p">;</span>   <span class="c1">// indicates the final gen to condemn per heap.</span>
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">const</span> <span class="kt">int</span> <span class="n">gen_alloc_budget</span> <span class="p">=</span> <span class="m">2</span><span class="p">;</span>     <span class="c1">// indicates which gen&#39;s budget is exceeded.</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">private</span> <span class="kd">const</span> <span class="kt">int</span> <span class="n">InitialGenMask</span> <span class="p">=</span> <span class="m">0x0</span> <span class="p">+</span> <span class="m">0x1</span> <span class="p">+</span> <span class="m">0x2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kd">static</span> <span class="kt">int</span> <span class="n">GetGen</span><span class="p">(</span><span class="kt">int</span> <span class="n">val</span><span class="p">,</span> <span class="kt">int</span> <span class="n">reason</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">gen</span> <span class="p">=</span> <span class="p">(</span><span class="n">val</span> <span class="p">&gt;&gt;</span> <span class="m">2</span> <span class="p">*</span> <span class="n">reason</span><span class="p">)</span> <span class="p">&amp;</span> <span class="n">InitialGenMask</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">gen</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h2 id="building-your-owntool">Building your own tool<a hidden class="anchor" aria-hidden="true" href="#building-your-owntool">#</a></h2>
+<p>Even though I could dig into the different matrices available in the Perfview’s GCStats view or its export to Excel, I decided to write dotnet-gcstats. This CLI tool listens to the CLR events emitted by a .NET application thanks to Microsoft.Diagnostics.NETCore.Client (connect to the application EventPipe) and TraceEvent (receive and analyze the CLR events).</p>
+<p>The code is amazingly simple:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-csharp" data-lang="csharp"><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">providers</span> <span class="p">=</span> <span class="k">new</span> <span class="n">List</span><span class="p">&lt;</span><span class="n">EventPipeProvider</span><span class="p">&gt;()</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">new</span> <span class="n">EventPipeProvider</span><span class="p">(</span><span class="s">&#34;Microsoft-Windows-DotNETRuntime&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">EventLevel</span><span class="p">.</span><span class="n">Informational</span><span class="p">,</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">ClrTraceEventParser</span><span class="p">.</span><span class="n">Keywords</span><span class="p">.</span><span class="n">GC</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl"><span class="p">};</span>
+</span></span><span class="line"><span class="cl"><span class="kt">var</span> <span class="n">client</span> <span class="p">=</span> <span class="k">new</span> <span class="n">DiagnosticsClient</span><span class="p">(</span><span class="n">processId</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="p">(</span><span class="kt">var</span> <span class="n">session</span> <span class="p">=</span> <span class="n">client</span><span class="p">.</span><span class="n">StartEventPipeSession</span><span class="p">(</span><span class="n">providers</span><span class="p">,</span> <span class="kc">false</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Console</span><span class="p">.</span><span class="n">WriteLine</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">Task</span> <span class="n">streamTask</span> <span class="p">=</span> <span class="n">Task</span><span class="p">.</span><span class="n">Run</span><span class="p">(()</span> <span class="p">=&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">{</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">var</span> <span class="n">source</span> <span class="p">=</span> <span class="k">new</span> <span class="n">EventPipeEventSource</span><span class="p">(</span><span class="n">session</span><span class="p">.</span><span class="n">EventStream</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="n">ClrTraceEventParser</span> <span class="n">clrParser</span> <span class="p">=</span> <span class="k">new</span> <span class="n">ClrTraceEventParser</span><span class="p">(</span><span class="n">source</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">clrParser</span><span class="p">.</span><span class="n">GCPerHeapHistory</span> <span class="p">+=</span> <span class="n">OnGCPerHeapHistory</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">clrParser</span><span class="p">.</span><span class="n">GCStart</span> <span class="p">+=</span> <span class="n">OnGCStart</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">clrParser</span><span class="p">.</span><span class="n">GCGlobalHeapHistory</span> <span class="p">+=</span> <span class="n">OnGCGlobalHeapHistory</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">        <span class="k">try</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">source</span><span class="p">.</span><span class="n">Process</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">        <span class="k">catch</span> <span class="p">(</span><span class="n">Exception</span> <span class="n">e</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">ShowError</span><span class="p">(</span><span class="s">$&#34;Error encountered while processing events: {e.Message}&#34;</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">});</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Each event handler is responsible for extracting and translating the interesting fields of its event payload with a few color enhancements:</p>
+<ul>
+<li><strong>GCStart</strong>: collection count and reason (highlight induced collections).</li>
+<li><strong>GCGlobalHeapHistory</strong>: condemned generation, pause mode and memory pressure.</li>
+<li><strong>GCPerHeapHistory</strong>: starting -&gt; final condemned generation and for each heap, budget, begin size, begin obj size, final size, promoted size and fragmentation.</li>
+</ul>
+<p>The final step was to transform a simple console application into a .NET CLI tool that everyone will be able to install with <strong>dotnet tool install -g dotnet-gcstats</strong> and use with <strong>dotnet gcstats <pid></strong>. I followed <a href="https://learn.microsoft.com/en-us/dotnet/core/tools/global-tools-how-to-create?WT.mc_id=DT-MVP-5003325">the documentation</a> by adding the following to the project file:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt">1
+</span><span class="lnt">2
+</span><span class="lnt">3
+</span><span class="lnt">4
+</span><span class="lnt">5
+</span><span class="lnt">6
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-xml" data-lang="xml"><span class="line"><span class="cl"><span class="nt">&lt;PropertyGroup&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;PackAsTool&gt;</span>true<span class="nt">&lt;/PackAsTool&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;ToolCommandName&gt;</span>dotnet-gcstats<span class="nt">&lt;/ToolCommandName&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;PackageOutputPath&gt;</span>./nupkg<span class="nt">&lt;/PackageOutputPath&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;GeneratePackageOnBuild&gt;</span>true<span class="nt">&lt;/GeneratePackageOnBuild&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&lt;/PropertyGroup&gt;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>In addition, I provided a few additional details:</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-xml" data-lang="xml"><span class="line"><span class="cl"><span class="nt">&lt;PropertyGroup&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;PackageId&gt;</span>dotnet-gcstats<span class="nt">&lt;/PackageId&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;PackageVersion&gt;</span>1.0.0<span class="nt">&lt;/PackageVersion&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;Title&gt;</span>dotnet-gcstats<span class="nt">&lt;/Title&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;Authors&gt;</span>christophe Nasarre<span class="nt">&lt;/Authors&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;Owners&gt;</span>chrisnas<span class="nt">&lt;/Owners&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;RepositoryUrl&gt;</span>https://github.com/chrisnas<span class="nt">&lt;/RepositoryUrl&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;RepositoryType&gt;</span>git<span class="nt">&lt;/RepositoryType&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;PackageProjectUrl&gt;</span>https://github.com/chrisnas/GCStats<span class="nt">&lt;/PackageProjectUrl&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;PackageLicenseFile&gt;</span>LICENSE<span class="nt">&lt;/PackageLicenseFile&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;Description&gt;</span>Global CLI tool to display live statistics during .NET garbage collections<span class="nt">&lt;/Description&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;PackageReleaseNotes&gt;</span>Initial release<span class="nt">&lt;/PackageReleaseNotes&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;Copyright&gt;</span>Copyright Christophe Nasarre 2024-$([System.DateTime]::UtcNow.ToString(yyyy))<span class="nt">&lt;/Copyright&gt;</span>
+</span></span><span class="line"><span class="cl">    <span class="nt">&lt;PackageTags&gt;</span>.NET TraceEvent CLR GC<span class="nt">&lt;/PackageTags&gt;</span>
+</span></span><span class="line"><span class="cl">  <span class="nt">&lt;/PropertyGroup&gt;</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>Once built, I simply uploaded the generated package to nuget.org et voila!</p>
+<p>Now, you should be able to better understand why some collections are triggered:</p>
+<p><img loading="lazy" src="/posts/2024-03-01_view-your-gcs-statistics/1_3oHvH2Vxb3PgW46khVMSMQ.png"></p>
+<p>And if it is not enough, wait for reading the second edition of Pro .NET Memory Management ;^)</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://localhost:1313/tags/c&#43;&#43;/">C&#43;&#43;</a></li>
+      <li><a href="http://localhost:1313/tags/c%23/">C#</a></li>
+      <li><a href="http://localhost:1313/tags/.net/">.NET</a></li>
+      <li><a href="http://localhost:1313/tags/gc/">GC</a></li>
+      <li><a href="http://localhost:1313/tags/debugging/">Debugging</a></li>
+      <li><a href="http://localhost:1313/tags/performance/">Performance</a></li>
+      <li><a href="http://localhost:1313/tags/diagnostics/">Diagnostics</a></li>
+      <li><a href="http://localhost:1313/tags/memory/">Memory</a></li>
+      <li><a href="http://localhost:1313/tags/dotnet-tools/">Dotnet-Tools</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="prev" href="http://localhost:1313/posts/2024-05-22_trigger-your-gcs-with/">
+    <span class="title">« Prev</span>
+    <br>
+    <span>Trigger your GCs with dotnet-fullgc!</span>
+  </a>
+  <a class="next" href="http://localhost:1313/posts/2023-12-11_be-aligned-or-how/">
+    <span class="title">Next »</span>
+    <br>
+    <span>Be Aligned! Or how to investigate a stack corruption</span>
+  </a>
+</nav>
+
+  </footer>
+<div class="giscus-container" style="margin-top: 3rem;">
+  <script src="https://giscus.app/client.js"
+          data-repo="chrisnas/chrisnas.github.io"
+          data-repo-id="R_kgDORritlA"
+          data-category="Announcements"
+          data-category-id="DIC_kwDORritlM4C5D7o"
+          data-mapping="pathname"
+          data-strict="0"
+          data-reactions-enabled="1"
+          data-emit-metadata="0"
+          data-input-position="bottom"
+          data-theme="preferred_color_scheme"
+          data-lang="en"
+          crossorigin="anonymous"
+          async>
+  </script>
+</div>
+
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="http://localhost:1313/">Welcome to Christophe Nasarre&#39;s Blog</a></span> · 
+
+    <span>
+        Powered by
+        <a href="https://gohugo.io/" rel="noopener noreferrer" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" aria-label="go to top" title="Go to Top (Alt + G)" class="top-link" id="top-link" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentColor">
+        <path d="M12 6H0l6-6z" />
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var mybutton = document.getElementById("top-link");
+    window.onscroll = function () {
+        if (document.body.scrollTop > 800 || document.documentElement.scrollTop > 800) {
+            mybutton.style.visibility = "visible";
+            mybutton.style.opacity = "1";
+        } else {
+            mybutton.style.visibility = "hidden";
+            mybutton.style.opacity = "0";
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = 'copy';
+
+        function copyingDone() {
+            copybutton.innerHTML = 'copied!';
+            setTimeout(() => {
+                copybutton.innerHTML = 'copy';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>
