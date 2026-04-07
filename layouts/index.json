@@ -1,0 +1,16 @@
+{{- $.Scratch.Add "index" slice -}}
+{{- range site.RegularPages -}}
+    {{- $page := . -}}
+    {{- if and (not $page.Params.searchHidden) (eq $page.Section "posts") -}}
+        {{- $cover := "" -}}
+        {{- $coverImg := $page.Resources.GetMatch "cover.*" -}}
+        {{- if not $coverImg -}}
+            {{- $coverImg = $page.Resources.GetMatch "*.{jpg,jpeg,png,gif,webp}" -}}
+        {{- end -}}
+        {{- if $coverImg -}}
+            {{- $cover = $coverImg.Permalink -}}
+        {{- end -}}
+        {{- $.Scratch.Add "index" (dict "title" $page.Title "content" $page.Plain "permalink" $page.Permalink "summary" $page.Summary "cover" $cover "date" ($page.Date.Format "2006-01-02")) -}}
+    {{- end -}}
+{{- end -}}
+{{- $.Scratch.Get "index" | jsonify -}}

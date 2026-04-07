@@ -1,0 +1,71 @@
+/* Home info: compact block, override PaperMod's first-entry sizing */
+article.first-entry.home-info {
+    min-height: auto;
+    justify-content: flex-start;
+}
+
+.home-info-body {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+}
+
+.home-info-avatar {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.home-info-text h1 {
+    font-size: 2rem;
+    margin: 0;
+}
+
+.home-info-desc {
+    margin: 0.3rem 0 0 0;
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+/* Search results with cover image */
+li.search-entry {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.search-result-cover {
+    width: 80px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.search-result-cover-placeholder {
+    background: var(--border);
+}
+
+.search-entry-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.search-entry-date {
+    margin: 0.15rem 0 0 0;
+    font-size: 0.8rem;
+    opacity: 0.6;
+}
+
+/* More space between post entries in the list */
+.post-entry {
+    margin-bottom: 2.5rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.post-entry:last-of-type {
+    border-bottom: none;
+}
