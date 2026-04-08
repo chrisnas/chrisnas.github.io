@@ -14,13 +14,118 @@
   {{- range $tags }}
   {{- $weight := div (mul (sub .Count 1) 100) (sub $max 1) }}
   {{- $size := add 80 (div (mul $weight 120) 100) }}
-  <a href="{{ .Page.Permalink }}"
+  <a href="#"
      class="tag-cloud-item"
+     data-tag="{{ .Page.Title }}"
      style="font-size: {{ $size }}%;"
      title="{{ .Count }} {{ if eq .Count 1 }}post{{ else }}posts{{ end }}">
     {{ .Page.Title }} <sup>{{ .Count }}</sup>
   </a>
   {{- end }}
 </div>
+
+<ul id="tagResults" aria-label="tag results"></ul>
+
+{{- /* Build tag→posts map and embed as JS data */ -}}
+{{- $tagData := dict }}
+{{- range $tags }}
+  {{- $posts := slice }}
+  {{- range .Page.Pages }}
+    {{- $cover := "" }}
+    {{- $coverImg := .Resources.GetMatch "cover.*" }}
+    {{- if not $coverImg }}
+      {{- $coverImg = .Resources.GetMatch "*.{jpg,jpeg,png,gif,webp}" }}
+    {{- end }}
+    {{- if $coverImg }}
+      {{- $cover = $coverImg.Permalink }}
+    {{- end }}
+    {{- $posts = $posts | append (dict "title" .Title "permalink" .Permalink "date" (.Date.Format "2006-01-02") "cover" $cover) }}
+  {{- end }}
+  {{- $tagData = merge $tagData (dict .Page.Title $posts) }}
+{{- end }}
+
+<script>
+(function() {
+  var tagData = {{ $tagData | jsonify | safeJS }};
+  var resList = document.getElementById('tagResults');
+  var activeTag = null;
+
+  function renderPosts(tag) {
+    var posts = tagData[tag];
+    if (!posts || posts.length === 0) { resList.innerHTML = ''; return; }
+
+    posts.sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+
+    var yearCounts = {};
+    for (var j = 0; j < posts.length; j++) {
+      var y = posts[j].date ? posts[j].date.substring(0, 4) : '';
+      if (y) yearCounts[y] = (yearCounts[y] || 0) + 1;
+    }
+
+    var html = '';
+    var lastYear = '';
+    for (var i = 0; i < posts.length; i++) {
+      var p = posts[i];
+      var year = p.date ? p.date.substring(0, 4) : '';
+      if (year && year !== lastYear) {
+        html += '<li class="search-year-header"><h2>' + year + ' <sup>' + yearCounts[year] + '</sup></h2></li>';
+        lastYear = year;
+      }
+      var coverHtml = p.cover
+        ? '<img src="' + p.cover + '" class="search-result-cover" alt="" loading="lazy">'
+        : '<div class="search-result-cover search-result-cover-placeholder"></div>';
+      var dateHtml = p.date
+        ? '<p class="search-entry-date">' + p.date + '</p>'
+        : '';
+      html +=
+        '<li class="post-entry search-entry">' +
+        '<a href="' + p.permalink + '" class="tag-entry-link" aria-label="' + p.title.replace(/"/g, '&quot;') + '">' +
+        coverHtml +
+        '<div class="search-entry-text">' +
+        '<header class="entry-header">' + p.title + '&nbsp;\u00BB</header>' +
+        dateHtml +
+        '</div>' +
+        '</a>' +
+        '</li>';
+    }
+    resList.innerHTML = html;
+  }
+
+  function setActiveTag(tag) {
+    document.querySelectorAll('.tag-cloud-item').forEach(function(el) {
+      el.classList.toggle('active', el.dataset.tag === tag);
+    });
+    activeTag = tag;
+    if (tag) {
+      renderPosts(tag);
+      resList.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+      resList.innerHTML = '';
+    }
+  }
+
+  document.querySelector('.tag-cloud').addEventListener('click', function(e) {
+    var link = e.target.closest('.tag-cloud-item');
+    if (!link) return;
+    e.preventDefault();
+    var tag = link.dataset.tag;
+    if (tag === activeTag) {
+      history.replaceState(null, '', window.location.pathname);
+      setActiveTag(null);
+    } else {
+      history.replaceState(null, '', '#' + encodeURIComponent(tag));
+      setActiveTag(tag);
+    }
+  });
+
+  var hash = window.location.hash.substring(1);
+  if (hash) {
+    var tag = decodeURIComponent(hash);
+    if (tagData[tag]) {
+      setActiveTag(tag);
+    }
+  }
+})();
+</script>
 
 {{- end }}

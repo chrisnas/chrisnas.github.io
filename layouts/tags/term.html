@@ -17,16 +17,19 @@
   </h2>
   <ul class="tag-year-posts">
     {{- range .Pages }}
-    <li class="search-entry">
-      {{- $cover := (.Resources.ByType "image").GetMatch (printf "*%s*" (.Params.cover.image)) }}
-      {{- if $cover }}
-      <img src="{{ $cover.Permalink }}" class="search-result-cover" alt="" loading="lazy">
-      {{- end }}
-      <div class="search-entry-text">
-        <header class="entry-header">{{ .Title }}&nbsp;»</header>
-        <p class="search-entry-date">{{ .Date.Format "2006-01-02" }}</p>
-      </div>
-      <a href="{{ .Permalink }}" aria-label="{{ .Title | plainify }}"></a>
+    <li class="post-entry search-entry">
+      <a href="{{ .Permalink }}" class="tag-entry-link" aria-label="{{ .Title | plainify }}">
+        {{- $cover := (.Resources.ByType "image").GetMatch (printf "*%s*" (.Params.cover.image)) }}
+        {{- if $cover }}
+        <img src="{{ $cover.Permalink }}" class="search-result-cover" alt="" loading="lazy">
+        {{- else }}
+        <div class="search-result-cover search-result-cover-placeholder"></div>
+        {{- end }}
+        <div class="search-entry-text">
+          <header class="entry-header">{{ .Title }}&nbsp;»</header>
+          <p class="search-entry-date">{{ .Date.Format "2006-01-02" }}</p>
+        </div>
+      </a>
     </li>
     {{- end }}
   </ul>

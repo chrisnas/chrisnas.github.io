@@ -72,6 +72,12 @@ li.search-entry {
     color: var(--primary);
 }
 
+.search-year-header h2 sup {
+    font-size: 0.65em;
+    opacity: 0.5;
+    font-weight: normal;
+}
+
 /* Tighten gap between cover image and summary text */
 .post-entry .entry-cover {
     margin-bottom: 0;
@@ -338,11 +344,43 @@ body.list .main {
     border-color: var(--primary);
 }
 
+.tag-cloud-item.active {
+    background: var(--primary);
+    color: var(--theme);
+    border-color: var(--primary);
+}
+
+.tag-cloud-item.active sup {
+    opacity: 0.7;
+}
+
 .tag-cloud-item sup {
     font-size: 0.6em;
     opacity: 0.5;
     margin-left: 2px;
 }
+
+/* ---- Tag results (mirrors #searchResults from theme search.css) ---- */
+#tagResults {
+    margin: 10px 0;
+    width: 100%;
+    padding: 0;
+}
+
+#tagResults li {
+    list-style: none;
+    border-radius: var(--radius);
+    padding: 10px;
+    margin: 10px 0;
+    position: relative;
+    font-weight: 500;
+}
+
+#tagResults li:active {
+    transition: transform 0.1s;
+    transform: scale(0.98);
+}
+
 
 /* ---- Tag detail page (year groups) ---- */
 .tag-year-posts {
@@ -352,8 +390,18 @@ body.list .main {
 }
 
 .tag-year-posts .search-entry {
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    margin: 10px 0;
+    font-weight: 500;
+}
+
+.tag-entry-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: inherit;
+    text-decoration: none;
 }
 
 .tag-year-group {

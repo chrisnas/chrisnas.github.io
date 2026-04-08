@@ -49,6 +49,14 @@
 
     resList.querySelectorAll('.search-year-header').forEach(function(h) { h.remove(); });
 
+    var yearCounts = {};
+    items.forEach(function(li) {
+      var dateEl = li.querySelector('.search-entry-date');
+      if (!dateEl) return;
+      var year = dateEl.textContent.trim().substring(0, 4);
+      yearCounts[year] = (yearCounts[year] || 0) + 1;
+    });
+
     var lastYear = '';
     items.forEach(function(li) {
       var dateEl = li.querySelector('.search-entry-date');
@@ -57,7 +65,7 @@
       if (year !== lastYear) {
         var header = document.createElement('li');
         header.className = 'search-year-header';
-        header.innerHTML = '<h2>' + year + '</h2>';
+        header.innerHTML = '<h2>' + year + ' <sup>' + yearCounts[year] + '</sup></h2>';
         li.parentNode.insertBefore(header, li);
         lastYear = year;
       }
