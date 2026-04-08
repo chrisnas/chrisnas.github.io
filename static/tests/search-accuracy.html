@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Accuracy Tests (Post-Fix)</title>
+<script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.basic.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; padding: 2rem; background: #1a1a2e; color: #e0e0e0; }
+  h1 { margin-bottom: 1rem; color: #eee; }
+  .summary { margin-bottom: 1.5rem; font-size: 1.1rem; padding: 1rem; border-radius: 8px; }
+  .summary.running { background: #2a2a4a; }
+  .summary.done { background: #1a3a2a; }
+  .summary.has-failures { background: #3a1a1a; }
+  .category { margin-bottom: 1.5rem; }
+  .category h2 { font-size: 1rem; margin-bottom: 0.5rem; color: #aaa; border-bottom: 1px solid #333; padding-bottom: 4px; }
+  .test { padding: 6px 12px; margin: 2px 0; border-radius: 4px; font-size: 0.9rem; display: flex; gap: 8px; align-items: baseline; }
+  .test.pass { background: #1a3a2a; }
+  .test.fail { background: #3a1a1a; }
+  .test.info { background: #2a2a3a; }
+  .icon { font-weight: bold; flex-shrink: 0; }
+  .pass .icon { color: #4caf50; }
+  .fail .icon { color: #f44336; }
+  .info .icon { color: #2196f3; }
+  .detail { color: #999; font-size: 0.8rem; margin-left: auto; white-space: nowrap; }
+</style>
+</head>
+<body>
+<h1>Search Accuracy Test Battery (Post-Fix)</h1>
+<div id="summary" class="summary running">Loading index.json and initializing Fuse.js...</div>
+<div id="results"></div>
+
+<script>
+(async function() {
+  const resultsEl = document.getElementById('results');
+  const summaryEl = document.getElementById('summary');
+
+  // --- Fuse options matching hugo.toml [params.fuseOpts] ---
+  const FUSE_OPTS = {
+    isCaseSensitive: false,
+    includeScore: true,
+    includeMatches: false,
+    minMatchCharLength: 3,
+    shouldSort: true,
+    findAllMatches: false,
+    keys: ['title', 'content'],
+    location: 0,
+    threshold: 0.1,
+    distance: 1000,
+    ignoreLocation: true
+  };
+
+  const LIMIT = 100;
+  const MIN_CHARS = 3;
+  const POST_COUNT = 56;
+
+  let data, fuse;
+  let passed = 0, failed = 0, infos = 0;
+  const categories = [];
+  let currentCat = null;
+
+  function cat(name) {
+    currentCat = { name, tests: [] };
+    categories.push(currentCat);
+  }
+
+  function assert(name, condition, detail) {
+    const status = condition ? 'pass' : 'fail';
+    if (condition) passed++; else failed++;
+    currentCat.tests.push({ name, status, detail: detail || '' });
+  }
+
+  function info(name, detail) {
+    infos++;
+    currentCat.tests.push({ name, status: 'info', detail: detail || '' });
+  }
+
+  // --- Replicate the fixed fastsearch.js logic ---
+  function parseQuery(raw) {
+    const phrases = [];
+    const stripped = raw.replace(/"([^"]+)"/g, (_, p) => {
+      phrases.push(p.trim().toLowerCase());
+      return '';
+    });
+    const terms = stripped.split(/\s+/).filter(t => t.length >= 2).map(t => t.toLowerCase());
+    const fuseQuery = raw.replace(/"/g, '').trim();
+    return { phrases, terms, fuseQuery };
+  }
+
+  function postFilter(results, phrases, terms) {
+    return results.filter(r => {
+      const hay = (r.item.title + ' ' + (r.item.summary || '') + ' ' + r.item.content).toLowerCase();
+      for (const p of phrases) { if (!hay.includes(p)) return false; }
+      for (const t of terms) { if (!hay.includes(t)) return false; }
+      return true;
+    });
+  }
+
+  function fullSearch(rawQuery) {
+    if (rawQuery.replace(/"/g, '').trim().length < MIN_CHARS) return { results: [], reason: 'too-short' };
+    const { phrases, terms, fuseQuery } = parseQuery(rawQuery);
+    let results = fuse.search(fuseQuery, { limit: LIMIT });
+    let filtered = postFilter(results, phrases, terms);
+    const seen = new Set();
+    const unique = filtered.filter(r => {
+      if (seen.has(r.item.permalink)) return false;
+      seen.add(r.item.permalink); return true;
+    });
+    unique.sort((a, b) => {
+      const scoreDiff = (a.score || 0) - (b.score || 0);
+      if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
+      return (b.item.date || '').localeCompare(a.item.date || '');
+    });
+    return { results: unique, reason: unique.length === 0 ? 'no-match' : 'ok' };
+  }
+
+  function titlesOf(results) { return results.map(r => r.item.title); }
+
+  function allContain(results, term) {
+    const lower = term.toLowerCase();
+    return results.every(r => {
+      const hay = (r.item.title + ' ' + r.item.content).toLowerCase();
+      return hay.includes(lower);
+    });
+  }
+
+  function allContainPhrase(results, phrase) {
+    const lower = phrase.toLowerCase();
+    return results.every(r => {
+      const hay = (r.item.title + ' ' + (r.item.summary || '') + ' ' + r.item.content).toLowerCase();
+      return hay.includes(lower);
+    });
+  }
+
+  function countPostsWith(term) {
+    const lower = term.toLowerCase();
+    return data.filter(d => (d.title + ' ' + d.content).toLowerCase().includes(lower)).length;
+  }
+
+  // --- Load data ---
+  try {
+    const resp = await fetch('/index.json');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    data = await resp.json();
+  } catch (e) {
+    summaryEl.textContent = 'Failed to load index.json: ' + e.message;
+    summaryEl.classList.replace('running', 'has-failures');
+    return;
+  }
+
+  fuse = new Fuse(data, FUSE_OPTS);
+  summaryEl.textContent = 'Running tests...';
+
+  // ==================== CATEGORY G: Index completeness ====================
+  cat('G -- Index Completeness');
+  assert('G1: Index has ' + POST_COUNT + ' entries', data.length === POST_COUNT, 'actual: ' + data.length);
+  assert('G2: No entry has empty title', data.every(d => d.title && d.title.trim().length > 0));
+  assert('G3: No entry has empty content', data.every(d => d.content && d.content.trim().length > 0));
+  assert('G4: All dates are YYYY-MM-DD', data.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d.date)));
+  assert('G5: All permalinks are valid URLs', data.every(d => d.permalink && d.permalink.startsWith('http')));
+  const plinks = data.map(d => d.permalink);
+  assert('G6: No duplicate permalinks', new Set(plinks).size === plinks.length);
+
+  // ==================== CATEGORY A: Single-term searches ====================
+  cat('A -- Single-Term Searches');
+  const rA1 = fullSearch('garbage').results;
+  assert('A1: "garbage" returns results', rA1.length > 0, rA1.length + ' results');
+  assert('A1b: all results contain "garbage"', allContain(rA1, 'garbage'));
+
+  const rA2 = fullSearch('async').results;
+  assert('A2: "async" returns results', rA2.length > 0, rA2.length + ' results');
+  assert('A2b: all results contain "async"', allContain(rA2, 'async'));
+
+  const rA3 = fullSearch('ClrMD').results;
+  assert('A3: "ClrMD" returns results', rA3.length > 0, rA3.length + ' results');
+
+  // ==================== CATEGORY B: Multi-word queries ====================
+  cat('B -- Multi-Word Queries (post-filter enforces AND)');
+  const rB1 = fullSearch('garbage collection').results;
+  assert('B1: "garbage collection" returns results', rB1.length > 0, rB1.length + ' results');
+  const b1Both = rB1.every(r => {
+    const hay = (r.item.title + ' ' + r.item.content).toLowerCase();
+    return hay.includes('garbage') && hay.includes('collection');
+  });
+  assert('B1b: ALL results contain both "garbage" AND "collection"', b1Both);
+
+  const rB2 = fullSearch('memory leak').results;
+  assert('B2: "memory leak" returns results', rB2.length > 0, rB2.length + ' results');
+  const b2Both = rB2.every(r => {
+    const hay = (r.item.title + ' ' + r.item.content).toLowerCase();
+    return hay.includes('memory') && hay.includes('leak');
+  });
+  assert('B2b: ALL results contain both "memory" AND "leak"', b2Both);
+
+  const rB3 = fullSearch('build your own').results;
+  assert('B3: "build your own" returns results', rB3.length > 0, rB3.length + ' results');
+  const buildTitleCount = data.filter(d => d.title.toLowerCase().includes('build your own')).length;
+  const buildInResults = rB3.filter(r => r.item.title.toLowerCase().includes('build your own')).length;
+  assert('B3b: all posts titled "Build your own..." appear', buildInResults >= buildTitleCount,
+    'expected >= ' + buildTitleCount + ', got ' + buildInResults);
+
+  // ==================== CATEGORY C: Quoted exact-phrase ====================
+  cat('C -- Quoted Exact-Phrase (FIXED)');
+  const rC1 = fullSearch('"garbage collection"').results;
+  assert('C1: \'"garbage collection"\' returns results', rC1.length > 0, rC1.length + ' results');
+  assert('C1b: all results contain exact phrase "garbage collection"',
+    allContainPhrase(rC1, 'garbage collection'));
+  const expectedExact = data.filter(d =>
+    (d.title + ' ' + (d.summary || '') + ' ' + d.content).toLowerCase().includes('garbage collection')).length;
+  info('C1c: posts with exact phrase in index', expectedExact + ' posts');
+
+  const rC2 = fullSearch('"build your own"').results;
+  assert('C2: \'"build your own"\' returns results', rC2.length > 0, rC2.length + ' results');
+  assert('C2b: all results contain exact phrase "build your own"',
+    allContainPhrase(rC2, 'build your own'));
+
+  // ==================== CATEGORY D: Negative / exclusion ====================
+  cat('D -- Negative / Exclusion Terms (not implemented)');
+  const rD1 = fullSearch('garbage -collection').results;
+  info('D1: "garbage -collection" returns', rD1.length + ' results');
+  info('D1b: negation requires useExtendedSearch which is not in the basic Fuse build');
+
+  // ==================== CATEGORY E: Short and edge-case queries ====================
+  cat('E -- Short and Edge-Case Queries');
+  const sGC = fullSearch('GC');
+  assert('E1: "GC" (2 chars) returns 0 results (minMatchCharLength=3)',
+    sGC.results.length === 0 && sGC.reason === 'too-short');
+
+  const rDotNet = fullSearch('.NET');
+  info('E2: ".NET" returns', rDotNet.results.length + ' results (reason: ' + rDotNet.reason + ')');
+
+  const sCSharp = fullSearch('C#');
+  assert('E3: "C#" (2 chars) returns 0 / too-short',
+    sCSharp.results.length === 0, 'reason: ' + sCSharp.reason);
+
+  const sEmpty = fullSearch('');
+  assert('E4: empty string returns 0 results', sEmpty.results.length === 0);
+
+  const sWhitespace = fullSearch('   ');
+  assert('E4b: whitespace-only returns 0 results', sWhitespace.results.length === 0);
+
+  let longOk = true;
+  try { fullSearch('a'.repeat(64)); } catch(e) { longOk = false; }
+  assert('E5: 64-char query does not crash', longOk);
+
+  // ==================== CATEGORY F: False positive detection ====================
+  cat('F -- False Positive Detection');
+  const rF1 = fullSearch('kubernetes').results;
+  assert('F1: "kubernetes" returns 0 results', rF1.length === 0, rF1.length + ' results');
+
+  const rF2 = fullSearch('react hooks').results;
+  assert('F2: "react hooks" returns 0 results', rF2.length === 0, rF2.length + ' results');
+
+  const rF3 = fullSearch('garbage').results;
+  const f3fp = rF3.filter(r => !(r.item.title + ' ' + r.item.content).toLowerCase().includes('garbage'));
+  assert('F3: no false positives for "garbage"', f3fp.length === 0, f3fp.length + ' false positives');
+
+  const rF3b = fullSearch('async').results;
+  const f3bfp = rF3b.filter(r => !(r.item.title + ' ' + r.item.content).toLowerCase().includes('async'));
+  assert('F3b: no false positives for "async"', f3bfp.length === 0, f3bfp.length + ' false positives');
+
+  // ==================== CATEGORY H: Result ordering ====================
+  cat('H -- Result Ordering (relevance-primary, date-secondary)');
+  const rH = fullSearch('garbage').results;
+  if (rH.length >= 2) {
+    const scores = rH.map(r => r.score || 0);
+    let relevanceOk = true;
+    for (let i = 1; i < rH.length; i++) {
+      const diff = (rH[i].score || 0) - (rH[i-1].score || 0);
+      if (diff < -0.01) { relevanceOk = false; break; }
+    }
+    assert('H1: results sorted by relevance (lower score = better)',
+      relevanceOk, 'scores: ' + scores.slice(0, 5).map(s => s.toFixed(4)).join(', '));
+
+    // Within same-score group, check date ordering
+    let dateOkInGroup = true;
+    for (let i = 1; i < rH.length; i++) {
+      if (Math.abs((rH[i].score||0) - (rH[i-1].score||0)) <= 0.01) {
+        if ((rH[i].item.date || '') > (rH[i-1].item.date || '')) {
+          dateOkInGroup = false; break;
+        }
+      }
+    }
+    assert('H2: within same relevance, sorted by date descending', dateOkInGroup);
+
+    info('H3: score range',
+      'best=' + (rH[0].score||0).toFixed(4) + ', worst=' + (rH[rH.length-1].score||0).toFixed(4));
+  } else {
+    info('H1: not enough results to test ordering');
+  }
+
+  // ==================== CATEGORY I: Highlighting & UX ====================
+  cat('I -- Highlighting & UX Feedback');
+
+  const sNoMatch = fullSearch('xyzzy12345');
+  assert('I3: "xyzzy12345" yields no-match reason', sNoMatch.reason === 'no-match',
+    'reason: ' + sNoMatch.reason);
+
+  const sShort = fullSearch('ab');
+  assert('I5: short query yields too-short reason', sShort.reason === 'too-short');
+
+  // Highlight function test (replicated)
+  function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function highlight(text, phrases, terms) {
+    const parts = phrases.map(escapeRegex).concat(terms.map(escapeRegex)).filter(Boolean);
+    if (parts.length === 0) return text;
+    const re = new RegExp('(' + parts.join('|') + ')', 'gi');
+    return text.replace(re, '<mark>$1</mark>');
+  }
+
+  const hlResult = highlight('Garbage Collection in .NET', ['garbage collection'], []);
+  assert('I1: highlight wraps matched phrase in mark tags',
+    hlResult.includes('<mark>Garbage Collection</mark>'),
+    hlResult);
+
+  const hlResult2 = highlight('memory leak in async code', [], ['memory', 'leak']);
+  assert('I2: highlight wraps individual terms in mark tags',
+    hlResult2.includes('<mark>memory</mark>') && hlResult2.includes('<mark>leak</mark>'),
+    hlResult2);
+
+  // ==================== Render results ====================
+  let html = '';
+  for (const c of categories) {
+    html += '<div class="category"><h2>' + c.name + '</h2>';
+    for (const t of c.tests) {
+      const icon = t.status === 'pass' ? '✓' : t.status === 'fail' ? '✗' : 'ℹ';
+      html += '<div class="test ' + t.status + '">' +
+        '<span class="icon">' + icon + '</span>' +
+        '<span>' + t.name + '</span>' +
+        (t.detail ? '<span class="detail">' + t.detail + '</span>' : '') +
+        '</div>';
+    }
+    html += '</div>';
+  }
+  resultsEl.innerHTML = html;
+
+  summaryEl.classList.remove('running');
+  if (failed > 0) {
+    summaryEl.classList.add('has-failures');
+  } else {
+    summaryEl.classList.add('done');
+  }
+  summaryEl.textContent = 'Done: ' + passed + ' passed, ' + failed + ' failed, ' + infos + ' info';
+
+  console.log('=== SEARCH ACCURACY TEST RESULTS (POST-FIX) ===');
+  console.log('Passed: ' + passed + ', Failed: ' + failed + ', Info: ' + infos);
+  for (const c of categories) {
+    console.log('\n--- ' + c.name + ' ---');
+    for (const t of c.tests) {
+      const icon = t.status === 'pass' ? 'PASS' : t.status === 'fail' ? 'FAIL' : 'INFO';
+      console.log('[' + icon + '] ' + t.name + (t.detail ? ' -- ' + t.detail : ''));
+    }
+  }
+})();
+</script>
+</body>
+</html>

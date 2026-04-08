@@ -29,6 +29,7 @@ theme = 'PaperMod'
     threshold = 0.1           # 0=exact, 1=match anything; 0.1 = very strict
     minmatchcharlength = 3
     ignorelocation = true
+    limit = 100
     keys = ["title", "content"]
 
 [params.cover]

@@ -82,14 +82,14 @@
   var q = new URLSearchParams(window.location.search).get('q');
   if (q) {
     sInput.value = q;
-    var attempts = 0;
-    var retry = setInterval(function() {
+    function triggerSearch() {
       sInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'a' }));
-      attempts++;
-      if ((resList && resList.innerHTML) || attempts > 50) {
-        clearInterval(retry);
-      }
-    }, 100);
+    }
+    document.addEventListener('fuseReady', triggerSearch, { once: true });
+    // Fallback in case fuseReady already fired before this script ran
+    setTimeout(function() {
+      if (resList && !resList.innerHTML) triggerSearch();
+    }, 5000);
   }
 })();
 </script>
