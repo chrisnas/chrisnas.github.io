@@ -124,10 +124,23 @@ li.search-entry {
     border-bottom: none;
 }
 
-/* Follow.it subscribe button in home info */
-.follow-btn {
-    display: inline-block;
+/* RSS icon + Follow.it button on the same line */
+.subscribe-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
     margin-top: 0.5rem;
+}
+
+.subscribe-row .social-icons {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.follow-btn {
+    display: inline-flex;
+    align-items: center;
 }
 
 .follow-btn img {

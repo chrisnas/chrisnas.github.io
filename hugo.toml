@@ -20,6 +20,7 @@ theme = 'PaperMod'
   ShowToc = true               # table of contents in posts
   TocOpen = false
   comments = true              # enable Giscus comments/reactions on posts
+  ShowFullTextinRSS = true
 
   [params.fuseOpts]
     iscasesensitive = false
@@ -67,3 +68,11 @@ theme = 'PaperMod'
     name = "About"
     url = "/about/"
     weight = 4
+  [[menu.main]]
+    name = "RSS"
+    url = "/index.xml"
+    weight = 5
+
+[[params.socialIcons]]
+  name = "rss"
+  url = "/index.xml"
