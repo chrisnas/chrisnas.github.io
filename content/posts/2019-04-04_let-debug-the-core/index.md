@@ -13,9 +13,9 @@ cover:
 
 This post of the series shows how we debugged the Core CLR to figure out insane contention duration.
 
-Part 1: [Replace .NET performance counters by CLR event tracing](http://labs.criteo.com/2018/06/replace-net-performance-counters-by-clr-event-tracing).
+Part 1: [Replace .NET performance counters by CLR event tracing](/posts/2018-06-19_replace-net-performance-counters/).
 
-Part 2: [Grab ETW Session, Providers and Events](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/).
+Part 2: [Grab ETW Session, Providers and Events](/posts/2018-07-26_grab-etw-session-providers/).
 
 Part 3: CLR Threading events with TraceEvent.
 
@@ -29,7 +29,7 @@ Long before migrating our .NET applications to Linux, our first step was to bui
 
 ![](1_chjw_0ZlNI1GH6wc2tgNBg.png)
 
-As shown in [a previous episode](https://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/), this duration is computed by comparing the time between the two events **ContentStart** and **ContentionStop**. What could be the possible reasons to get such insane values?
+As shown in [a previous episode](/posts/2018-09-28_monitor-finalizers-contention-threads/), this duration is computed by comparing the time between the two events **ContentStart** and **ContentionStop**. What could be the possible reasons to get such insane values?
 
 1. A lot of small contentions are happening
 

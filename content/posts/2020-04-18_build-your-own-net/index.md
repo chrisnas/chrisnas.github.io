@@ -25,7 +25,7 @@ Instead, several events that are emitted by the CLR are providing interesting de
 
 ![](1_-DSm_89dq8yj8jI1aZ3ZYg.png)
 
-The **GCSampledObjectAllocation** events payload provides a type ID instead of a plain text type name. In order to retrieve the type name given its ID, we need to listen to **TypeBulkType** event that contains the mapping as I described in [my post about finalizers](https://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/). This is why the last two **GCHeapAndTypeNames** and **Type** keywords are needed.
+The **GCSampledObjectAllocation** events payload provides a type ID instead of a plain text type name. In order to retrieve the type name given its ID, we need to listen to **TypeBulkType** event that contains the mapping as I described in [my post about finalizers](/posts/2018-09-28_monitor-finalizers-contention-threads/). This is why the last two **GCHeapAndTypeNames** and **Type** keywords are needed.
 
 Remember that if both **GCSampledObjectAllocationLow** and **GCSampledObjectAllocationHigh** keywords are set, an event will be received for EACH allocation. This could be a performance issue both for the monitored application and the profiler. I would recommend starting with either low or high (more on this later).
 

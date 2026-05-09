@@ -13,7 +13,7 @@ cover:
 
 ## Introduction
 
-In an [old post](https://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/), I detailed how to use **ContentionStart** and **ContentionStop** events to measure the lock contentions duration for a .NET application. In a [.NET 9 pull request](https://github.com/DataDog/dd-trace-dotnet/issues/5814), a former Criteo’s colleague [Grégoire Verdier](https://www.linkedin.com/in/gregoire-verdier) has added new events to be notified when wait time similar to lock contention is happening for Mutex, Semaphore, Manual/AutoResetEvent. Read [his post](https://techblog.criteo.com/a-perfview-alternative-in-webassembly-f6833820b699) for more details about what he was trying to investigate.
+In an [old post](/posts/2018-09-28_monitor-finalizers-contention-threads/), I detailed how to use **ContentionStart** and **ContentionStop** events to measure the lock contentions duration for a .NET application. In a [.NET 9 pull request](https://github.com/DataDog/dd-trace-dotnet/issues/5814), a former Criteo’s colleague [Grégoire Verdier](https://www.linkedin.com/in/gregoire-verdier) has added new events to be notified when wait time similar to lock contention is happening for Mutex, Semaphore, Manual/AutoResetEvent. Read [his post](https://techblog.criteo.com/a-perfview-alternative-in-webassembly-f6833820b699) for more details about what he was trying to investigate.
 
 With asynchronous and multi-threaded algorithms, it is essential to detect unexpected wait/locks in our applications. This post shows you how to leverage these events to measure the duration of these waits and get the call stack when the wait started:
 

@@ -13,11 +13,11 @@ cover:
 
 This post of the series focuses on CLR events related to garbage collection in .NET.
 
-Part 1: [Replace .NET performance counters by CLR event tracing](http://labs.criteo.com/2018/06/replace-net-performance-counters-by-clr-event-tracing).
+Part 1: [Replace .NET performance counters by CLR event tracing](/posts/2018-06-19_replace-net-performance-counters/).
 
-Part 2: [Grab ETW Session, Providers and Events](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/).
+Part 2: [Grab ETW Session, Providers and Events](/posts/2018-07-26_grab-etw-session-providers/).
 
-Part 3: [CLR Threading events with TraceEvent](http://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/).
+Part 3: [CLR Threading events with TraceEvent](/posts/2018-09-28_monitor-finalizers-contention-threads/).
 
 ## Introduction
 
@@ -31,7 +31,7 @@ The impact on how your application behaves is mostly related to a couple of topi
 *With the rise of containers and their quotas, your application needs to trim down its memory consumption. For example, with server GC enabled, the amount of memory used by your application could grows big (depending on the number of cores) before a gen 0 collection kicks in (read [this discussion](https://github.com/aspnet/AspNetCore/issues/3409) about real world cases including StackOverflow web site and what are the possible solutions)
 The memory pressure on the system is also taken into account by the GC and could lead to more collections being triggered (read Maoni Stephen blog post about [how Windows jobs are taken into account by the GC and how to leverage them if needed](https://devblogs.microsoft.com/dotnet/running-with-server-gc-in-a-small-container-scenario-part-0/?WT.mc_id=DT-MVP-5003325)). It becomes more and more important to detect leaks and memory consumption spikes.
 
-In the previous post, you saw how to get the type name of instances being finalized. The CLR provides many more events related to memory management. They definitively help understand the interactions between this crucial part of .NET and your own code. In this article, you will see how to replace [the not always consistent performance counters](http://labs.criteo.com/2018/06/replace-net-performance-counters-by-clr-event-tracing/) such as generation sizes or collection counts. More importantly, you will get very useful metrics information like the type of GC (foreground or background) and your application threads suspension time.
+In the previous post, you saw how to get the type name of instances being finalized. The CLR provides many more events related to memory management. They definitively help understand the interactions between this crucial part of .NET and your own code. In this article, you will see how to replace [the not always consistent performance counters](/posts/2018-06-19_replace-net-performance-counters//) such as generation sizes or collection counts. More importantly, you will get very useful metrics information like the type of GC (foreground or background) and your application threads suspension time.
 
 ## Sequences of events during Garbage Collection phases
 

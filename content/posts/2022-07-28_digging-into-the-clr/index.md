@@ -23,7 +23,7 @@ This series will detail how to communicate with a CLR using this protocol both i
 
 ## Make it simple: use Microsoft.Diagnostics.NETCore.Client nuget
 
-With [TraceEvent nugget package](https://www.nuget.org/packages/Microsoft.Diagnostics.Tracing.TraceEvent), Microsoft provided a great library to [easily listen to CLR events](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/) in C#. If you want to easily send CLR diagnostic IPC protocol commands to a CLR in a .NET process, [Microsoft.Diagnostics.NETCore.Client nuget package](https://www.nuget.org/packages/Microsoft.Diagnostics.NETCore.Client/) is for you. Remember that EventPipe is implemented by .NET Core and .NET 5+ (so no .NET Framework support)
+With [TraceEvent nugget package](https://www.nuget.org/packages/Microsoft.Diagnostics.Tracing.TraceEvent), Microsoft provided a great library to [easily listen to CLR events](/posts/2018-07-26_grab-etw-session-providers/) in C#. If you want to easily send CLR diagnostic IPC protocol commands to a CLR in a .NET process, [Microsoft.Diagnostics.NETCore.Client nuget package](https://www.nuget.org/packages/Microsoft.Diagnostics.NETCore.Client/) is for you. Remember that EventPipe is implemented by .NET Core and .NET 5+ (so no .NET Framework support)
 
 The Swiss knife class **DiagnosticsClient** gives you access to most of the commands plus a way to list .NET processes as a bonus:
 
