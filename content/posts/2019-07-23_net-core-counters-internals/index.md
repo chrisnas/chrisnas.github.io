@@ -13,11 +13,11 @@ cover:
 
 This post of the series digs into the implementation details of the new .NET Core counters.
 
-Part 1: [Replace .NET performance counters by CLR event tracing](http://labs.criteo.com/2018/06/replace-net-performance-counters-by-clr-event-tracing).
+Part 1: [Replace .NET performance counters by CLR event tracing](/posts/2018-06-19_replace-net-performance-counters/).
 
-Part 2: [Grab ETW Session, Providers and Events](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/).
+Part 2: [Grab ETW Session, Providers and Events](/posts/2018-07-26_grab-etw-session-providers/).
 
-Part 3: [CLR Threading events with TraceEvent](http://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/).
+Part 3: [CLR Threading events with TraceEvent](/posts/2018-09-28_monitor-finalizers-contention-threads/).
 
 Part 4: [Spying on .NET Garbage Collector with TraceEvent](/posts/2018-12-15_spying-on-net-garbage/).
 
@@ -109,7 +109,7 @@ source.Dynamic.All += ProcessEvents;
 source.Process();
 ```
 
-The important method call is call is `EventPipeClient.CollectTracing()` that returns a `Stream` from which an `EventPipeEventSource` instance gets created. This class has been added to **TraceEvent** so you can now leverage the event parsing infrastructure on top of **EventPipe**! As shown in [a previous post](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/), it is easy to attach a listener to the source `All` .NET event and get notified each time an event is received after the `Process` method is called.
+The important method call is call is `EventPipeClient.CollectTracing()` that returns a `Stream` from which an `EventPipeEventSource` instance gets created. This class has been added to **TraceEvent** so you can now leverage the event parsing infrastructure on top of **EventPipe**! As shown in [a previous post](/posts/2018-07-26_grab-etw-session-providers/), it is easy to attach a listener to the source `All` .NET event and get notified each time an event is received after the `Process` method is called.
 
 A few parameters are given to `CollectTracing` via the `SessionConfiguration` object: the size of the circular buffer used by the CLR and no file path because we want a live session. The last one is supposed to filter which providers and counters you would like to listen to: it expects a list of `Provider` instances. This struct [is created with a few parameters](https://github.com/dotnet/diagnostics/blob/master/src/Microsoft.Diagnostics.Tools.RuntimeClient/Eventing/Provider.cs#L10):
 

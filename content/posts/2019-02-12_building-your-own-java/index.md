@@ -13,11 +13,11 @@ cover:
 
 This post of the series focuses on logging each GC details in a file and how to leverage it during investigations.
 
-Part 1: [Replace .NET performance counters by CLR event tracing](http://labs.criteo.com/2018/06/replace-net-performance-counters-by-clr-event-tracing).
+Part 1: [Replace .NET performance counters by CLR event tracing](/posts/2018-06-19_replace-net-performance-counters/).
 
-Part 2: [Grab ETW Session, Providers and Events](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/).
+Part 2: [Grab ETW Session, Providers and Events](/posts/2018-07-26_grab-etw-session-providers/).
 
-Part 3: [Monitor Finalizers, contention and threads in your application](https://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/).
+Part 3: [Monitor Finalizers, contention and threads in your application](/posts/2018-09-28_monitor-finalizers-contention-threads/).
 
 Part 4: [Spying on .NET Garbage Collector with TraceEvent](/posts/2018-12-15_spying-on-net-garbage/).
 

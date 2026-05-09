@@ -13,9 +13,9 @@ cover:
 
 This post of the series shows how to generate GC logs in .NET Core with the new event pipes architecture and details the events emitted by the CLR during a collection.
 
-Part 1: [Replace .NET performance counters by CLR event tracing](http://labs.criteo.com/2018/06/replace-net-performance-counters-by-clr-event-tracing).
+Part 1: [Replace .NET performance counters by CLR event tracing](/posts/2018-06-19_replace-net-performance-counters/).
 
-Part 2: [Grab ETW Session, Providers and Events](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/).
+Part 2: [Grab ETW Session, Providers and Events](/posts/2018-07-26_grab-etw-session-providers/).
 
 Part 3: CLR Threading events with TraceEvent.
 

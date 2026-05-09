@@ -13,7 +13,7 @@ cover:
 
 ## Introduction
 
-At Criteo, CLR metrics are collected by a service that listens to ETW events ([see the related series](http://labs.criteo.com/2018/09/monitor-finalizers-contention-and-threads-in-your-application/)). On a few servers, the metrics stopped being collected and we had to fix the problem [by manually polling new and dead processes](/posts/2018-11-13_get-process-name-challenge/). After deploying the new version, the same scenario started to happen: on some servers, the metrics were no more collected.
+At Criteo, CLR metrics are collected by a service that listens to ETW events ([see the related series](/posts/2018-09-28_monitor-finalizers-contention-threads/)). On a few servers, the metrics stopped being collected and we had to fix the problem [by manually polling new and dead processes](/posts/2018-11-13_get-process-name-challenge/). After deploying the new version, the same scenario started to happen: on some servers, the metrics were no more collected.
 
 In an investigation, the first step is always trying to check the environment. In our case, on a server where the metrics collector is up and running, a dedicated ETW session should be created to listen to the CLR events.
 
@@ -21,7 +21,7 @@ In an investigation, the first step is always trying to check the environment. I
 
 The name given to the session allows us to easily detect if the session is present or not. In the case of a faulted server, the session was not present.
 
-If you look at the code described in [a previous post](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/), it is not easy to guess why the session would be stopped by the metrics collector:
+If you look at the code described in [a previous post](/posts/2018-07-26_grab-etw-session-providers/), it is not easy to guess why the session would be stopped by the metrics collector:
 
 ```csharp
 private void ListenToEtw(TraceEventSession etwSession)

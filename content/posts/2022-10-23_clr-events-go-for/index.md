@@ -11,7 +11,7 @@ cover:
 
 ---
 
-As shown in the [previous post](/posts/2022-09-18_net-diagnostic-ipc-protocol/), the processing of **ProcessInfo** diagnostic commands is easy because you send a request and read the different fields from the response. This is different if you want to receive events from the CLR via EventPipe. In C#, the [TraceEvent nuget package](https://www.nuget.org/packages/Microsoft.Diagnostics.Tracing.TraceEvent/) wraps everything under a nice event handler based model as shown in many of my [previous posts](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/).
+As shown in the [previous post](/posts/2022-09-18_net-diagnostic-ipc-protocol/), the processing of **ProcessInfo** diagnostic commands is easy because you send a request and read the different fields from the response. This is different if you want to receive events from the CLR via EventPipe. In C#, the [TraceEvent nuget package](https://www.nuget.org/packages/Microsoft.Diagnostics.Tracing.TraceEvent/) wraps everything under a nice event handler based model as shown in many of my [previous posts](/posts/2018-07-26_grab-etw-session-providers/).
 
 Behind the scene, a **StartSession** command is sent (more details about the parameters later) and the response contains the numeric ID of the session. Then, the events will be read from the IPC channel as a binary stream of data with the [“nettrace“ file format](https://github.com/microsoft/perfview/blob/main/src/TraceEvent/EventPipe/EventPipeFormat.md). The collection ends when the **StopTracing** command is sent.
 

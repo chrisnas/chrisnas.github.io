@@ -21,7 +21,7 @@ It is now time to do the same but for the CPU consumption of your .NET applicat
 
 ## Thanks you Mr Windows Kernel!
 
-Under Windows, the kernel ETW provider allows you to get notified every milli-second with the call stack of all threads running on a core. Without any surprise, it is easy with TraceEvent to listen to these events. As explained in an [old posts](http://labs.criteo.com/2018/07/grab-etw-session-providers-and-events/), you simply need to create a session, enable providers and listen to the right event.
+Under Windows, the kernel ETW provider allows you to get notified every milli-second with the call stack of all threads running on a core. Without any surprise, it is easy with TraceEvent to listen to these events. As explained in an [old posts](/posts/2018-07-26_grab-etw-session-providers/), you simply need to create a session, enable providers and listen to the right event.
 
 For sampled CPU profiling, I’m using the `TraceLogEventSource` to wrap the event source and automatically get the stack frames symbol resolution:
 
