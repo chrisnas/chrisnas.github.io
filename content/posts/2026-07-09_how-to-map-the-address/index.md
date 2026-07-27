@@ -3,7 +3,7 @@ title: "How to map the address space of a process on Windows and Linux"
 date: 2026-07-09T09:00:00.000Z
 description: "From a 2007 Windows via C/C++ VMMap demo to a modern Windows 11 analyzer and its Linux /proc/smaps counterpart - and why Working Set, RSS/PSS and 'committed' memory do not mean the same thing on the two operating systems."
 tags: ["C++", "Windows", "Linux", "memory", "debugging", "diagnostics", "Python", "Cursor"]
-draft: true
+draft: false
 cover:
   image: "ASMapOutputWindows.png"
   relative: true
