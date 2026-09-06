@@ -391,7 +391,7 @@ Subagents have their own lifecycle:
 
 This is richer than a simple "Task tool was called" event mostly because the `task` field contains the prompt used by the task. It tells you which model ran the delegated task, whether it was a parallel worker, how long it lived, how many tools it used and which files it modified.
 
-However, I was not able to find direct relations between other sessions that I was guessing were related to sub tasks by using `tool_call_id` or `subagent_id` and the parent session. Even worse, no `sessionStart` hook seems to be triggered for these task-related sessions as described in [this issue](https://github.com/anthropics/claude-code/issues/27423)...
+However, I was not able to find direct relations between other sessions that I was guessing were related to sub tasks by using `tool_call_id` or `subagent_id` and the parent session. Even worse, no `sessionStart` hook seems to be triggered for these task-related sessions as described in [this issue](https://github.com/anthropics/claude-code/issues/27423) for Claude...
 
 ## What is missing?
 
