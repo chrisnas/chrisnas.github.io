@@ -29,11 +29,11 @@ This is the first post in a multi-part series:
 
 2. Rebuilding the conversation: sessions, turns, thoughts, tools, MCP, skills and summaries
 
-3. Extending the spy to Claude Code
+3. Spying on Claude Code: more lifecycle events, different blind spots
 
-4. Look at GitHub Copilot
+4. Spying on GitHub Copilot twice: CLI hooks versus VS Code
 
-
+5. Beyond hooks: mining undocumented agent transcript logs
 
 ## Twenty-one windows into Cursor
 
@@ -436,5 +436,3 @@ At this point I had a safe stream of JSON payloads and a viewer receiving them. 
 - [Cursor hooks documentation](https://cursor.com/docs/hooks)
 - [Cursor third-party hooks compatibility](https://cursor.com/docs/reference/third-party-hooks)
 - Corresponding source code: `CursorSpy/POC` in my [HarnessSpy repository](https://github.com/chrisnas/HarnessSpy/tree/main/POC)
-
-
