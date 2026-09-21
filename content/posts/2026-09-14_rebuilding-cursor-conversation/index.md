@@ -20,10 +20,10 @@ For one user prompt I could receive thoughts, generic tool hooks, specialized Sh
 This is the second post in the series:
 
 1. [Spying on Cursor: agent hooks, payloads and a simple observer](/posts/2026-08-23_spying-on-cursor-hooks/)
-2. **Rebuilding the conversation: sessions, turns, thoughts, tools, MCP, skills and summaries** (this post)
-3. Spying on Claude Code: more lifecycle events, different blind spots
+2. **Rebuilding the Agent conversation: sessions, turns, thoughts, tools, MCP, skills and summaries** (this post)
+3. [Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
 4. Spying on GitHub Copilot twice: CLI hooks versus VS Code
-5. Beyond hooks: mining undocumented agent transcript logs
+5. Beyond hooks: enriching live sessions with undocumented transcript logs
 
 The POC from the first post has since evolved into the shared [HarnessSpy](https://github.com/chrisnas/HarnessSpy) implementation used here. The capture remains passive; this post focuses on what happens **after** a payload reaches the viewer.
 
@@ -424,10 +424,11 @@ Here are the important lessons learnt while trying  to rebuild a Cursor conversa
 4. **Skill usage is only inferred from evidences.** A `SKILL.md` read, slash command and thought mention do not mean the same thing.
 5. **A summary is a projection, not an oracle.** It is only as complete as what was extracted from the existing triggered hooks.
 
-The next posts will show what happens when trying to feed Claude Code, GitHub Copilot CLI, and VS Code events through this same model. As we will see, using one tree does not mean that every harness provides the same level of visibility on what it is doing.
+The [next post](/posts/2026-09-20_spying-on-claude-code-hooks/) shows what happens when feeding Claude Code through this same model; later posts cover GitHub Copilot CLI, VS Code, and transcript enrichment. As we will see, using one tree does not mean that every harness provides the same level of visibility on what it is doing.
 
 ## References
 
 - [Part 1: Spying on Cursor: agent hooks, payloads and a simple observer](/posts/2026-08-23_spying-on-cursor-hooks/)
+- [Part 3: Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
 - [HarnessSpy source code](https://github.com/chrisnas/HarnessSpy)
 - [Cursor hooks documentation](https://cursor.com/docs/hooks)

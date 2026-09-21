@@ -25,15 +25,11 @@ Fortunately, I did not need to reverse-engineer Cursor or intercept its network 
 
 This is the first post in a multi-part series:
 
-1. **Spying on Cursor: agent hooks, their payloads and a simple observer** (this post)
-
-2. Rebuilding the conversation: sessions, turns, thoughts, tools, MCP, skills and summaries
-
-3. Spying on Claude Code: more lifecycle events, different blind spots
-
+1. **Spying on Cursor: agent hooks, payloads and a simple observer** (this post)
+2. [Rebuilding the Agent conversation: sessions, turns, thoughts, tools, MCP, skills and summaries](/posts/2026-09-14_rebuilding-cursor-conversation/)
+3. [Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
 4. Spying on GitHub Copilot twice: CLI hooks versus VS Code
-
-5. Beyond hooks: mining undocumented agent transcript logs
+5. Beyond hooks: enriching live sessions with undocumented transcript logs
 
 ## Twenty-one windows into Cursor
 
@@ -257,7 +253,7 @@ Every agent hook receives a common set of fields in addition to its event-specif
 
 `workspaceOpen` runs outside an agent session, so it does not have conversation, generation or model fields. `sessionStart` also adds `session_id`, which Cursor documents as the same identifier as `conversation_id`.
 
-The first two IDs are the key to the next post: `conversation_id` groups a session and `generation_id` groups all events produced by one prompt.
+The first two IDs are the key to the [next post](/posts/2026-09-14_rebuilding-cursor-conversation/): `conversation_id` groups a session and `generation_id` groups all events produced by one prompt.
 
 `model_params` is useful but should not be confused with the complete request sent to the model. It exposes selected controls such as `thinking`, `context` or `effort`; it does not expose the assembled system prompt and full model context. Even worse, it is noted as optional in the documentation and I've never seen any during my tests...
 
@@ -402,7 +398,7 @@ The received hooks contain much more information than I expected, but their payl
 - Cursor has no dedicated hook for a question the agent asks the user and the answer the user provides.
 - A `before...` hook can make a permission decision, but this passive spy does not see the complete approval UI exchange. A later `permission_denied` failure is only indirect evidence.
 
-The next post will return to these blind spots after rebuilding the events into a session/turn/tool tree. 
+The [next post](/posts/2026-09-14_rebuilding-cursor-conversation/) returns to these blind spots after rebuilding the events into a session/turn/tool tree.
 
 
 
@@ -429,10 +425,12 @@ Cursor hooks could be a useful observability mechanism for three reasons:
 2. Stable identifiers such as `conversation_id`, `generation_id`, `tool_use_id` and `subagent_id` provide the raw material needed to reconstruct causality.
 3. A deliberately passive hook can observe those events without becoming part of the agent's behavior or failure path.
 
-At this point I had a safe stream of JSON payloads and a viewer receiving them. The next challenge was more interesting: turning that flat stream into conversations, turns, nested and parallel tool calls, skills usage and a useful summary.
+At this point I had a safe stream of JSON payloads and a viewer receiving them. The [next challenge](/posts/2026-09-14_rebuilding-cursor-conversation/) was more interesting: turning that flat stream into conversations, turns, nested and parallel tool calls, skills usage and a useful summary.
 
 ## References
 
+- [Part 2: Rebuilding the Agent conversation](/posts/2026-09-14_rebuilding-cursor-conversation/)
+- [Part 3: Spying on Claude Code](/posts/2026-09-20_spying-on-claude-code-hooks/)
 - [Cursor hooks documentation](https://cursor.com/docs/hooks)
 - [Cursor third-party hooks compatibility](https://cursor.com/docs/reference/third-party-hooks)
 - Corresponding source code: `CursorSpy/POC` in my [HarnessSpy repository](https://github.com/chrisnas/HarnessSpy/tree/main/POC)
