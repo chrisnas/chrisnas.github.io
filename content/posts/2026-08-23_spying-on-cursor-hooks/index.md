@@ -179,7 +179,7 @@ The hook process must terminate quickly to avoid blocking Cursor. Because I want
 
 ![WPFSpyUI](WPFSpyUI.png)
 
-The files stored by the console app hook are used to replay previous sessions but to monitor live sessions, a local named pipe is user: the WPF opens and listens to it and the console sends the hook payload:
+The files stored by the console app hook are used to replay previous sessions but to monitor live sessions, a local named pipe is used: the WPF opens and listens to it and the console sends the hook payload:
 
 ```csharp
 public sealed class NamedPipePayloadSink(
@@ -210,7 +210,7 @@ public sealed class NamedPipePayloadSink(
 
 If the viewer is running, it receives one newline-delimited envelope. If it is not running, the connection attempt is abandoned after 150 milliseconds and the hook still succeeds.
 
-On the other side, the WPF application creates `HarnessSpy.Ingest.v1` name pipe with `PipeOptions.CurrentUserOnly`, accepts simultaneous short-lived clients and dispatches each valid observation to the UI thread:
+On the other side, the WPF application creates `HarnessSpy.Ingest.v1` named pipe with `PipeOptions.CurrentUserOnly`, accepts simultaneous short-lived clients and dispatches each valid observation to the UI thread:
 
 ![CursorHookDataFlow](CursorHookDataFlow.png)
 
