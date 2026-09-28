@@ -23,8 +23,8 @@ This is the third post in a multi-part series:
 1. [Spying on Cursor: agent hooks, payloads and a simple observer](/posts/2026-08-23_spying-on-cursor-hooks/)
 2. [Rebuilding the Agent conversation: sessions, turns, thoughts, tools, MCP, skills and summaries](/posts/2026-09-14_rebuilding-cursor-conversation/)
 3. **Spying on Claude Code: more lifecycle events, different blind spots** (this post)
-4. Spying on GitHub Copilot twice: CLI hooks versus VS Code
-5. Beyond hooks: mining undocumented agent transcript logs
+4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
+5. Beyond hooks: enriching live sessions with undocumented transcript logs
 
 Claude reuses the same architecture introduced in the first two posts: one short-lived console hook forwards observations to the long-lived WPF viewer. I will not repeat the stdin, named-pipe and envelope mechanics here.
 
@@ -376,7 +376,7 @@ Claude Code changed my idea of what a useful hook surface looks like:
 2. **More events expose more orchestration, not necessarily more model internals.** Permissions, instructions, batches and compaction become visible while reasoning and tokens disappear from hooks.
 3. **Exact identifiers do not eliminate heuristics.** Permission requests, compaction and summarizer relocation still require structural evidence.
 
-The next post will turn to GitHub Copilot, where one provider exposes two different hook surfaces.
+The [next post](/posts/2026-09-27_spying-on-github-copilot-twice/) turns to GitHub Copilot, where one provider exposes two different hook surfaces.
 
 ## References
 
@@ -387,5 +387,3 @@ The next post will turn to GitHub Copilot, where one provider exposes two differ
 - [Claude Code hooks guide](https://code.claude.com/docs/en/hooks-guide)
   
   
-
-

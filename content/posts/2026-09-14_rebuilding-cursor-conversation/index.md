@@ -22,7 +22,7 @@ This is the second post in the series:
 1. [Spying on Cursor: agent hooks, payloads and a simple observer](/posts/2026-08-23_spying-on-cursor-hooks/)
 2. **Rebuilding the Agent conversation: sessions, turns, thoughts, tools, MCP, skills and summaries** (this post)
 3. [Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
-4. Spying on GitHub Copilot twice: CLI hooks versus VS Code
+4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. Beyond hooks: enriching live sessions with undocumented transcript logs
 
 The POC from the first post has since evolved into the shared [HarnessSpy](https://github.com/chrisnas/HarnessSpy) implementation used here. The capture remains passive; this post focuses on what happens **after** a payload reaches the viewer.

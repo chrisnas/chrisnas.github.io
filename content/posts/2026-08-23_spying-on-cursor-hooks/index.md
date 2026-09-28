@@ -28,7 +28,7 @@ This is the first post in a multi-part series:
 1. **Spying on Cursor: agent hooks, payloads and a simple observer** (this post)
 2. [Rebuilding the Agent conversation: sessions, turns, thoughts, tools, MCP, skills and summaries](/posts/2026-09-14_rebuilding-cursor-conversation/)
 3. [Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
-4. Spying on GitHub Copilot twice: CLI hooks versus VS Code
+4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. Beyond hooks: enriching live sessions with undocumented transcript logs
 
 ## Twenty-one windows into Cursor
