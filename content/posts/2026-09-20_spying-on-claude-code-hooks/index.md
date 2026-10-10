@@ -24,7 +24,7 @@ This is the third post in a multi-part series:
 2. [Rebuilding the Agent conversation: sessions, turns, thoughts, tools, MCP, skills and summaries](/posts/2026-09-14_rebuilding-cursor-conversation/)
 3. **Spying on Claude Code: more lifecycle events, different blind spots** (this post)
 4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
-5. Beyond hooks: enriching live sessions with undocumented transcript logs
+5. [Beyond hooks: enriching live sessions with undocumented transcript logs](/posts/2026-10-09_beyond-hooks-transcript-logs/)
 
 Claude reuses the same architecture introduced in the first two posts: one short-lived console hook forwards observations to the long-lived WPF viewer. I will not repeat the stdin, named-pipe and envelope mechanics here.
 

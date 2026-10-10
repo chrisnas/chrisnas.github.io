@@ -1,0 +1,20 @@
+---
+description: Clear and explicit writing style for technical blog posts
+globs: content/posts/**/*.md
+alwaysApply: false
+---
+
+# Technical blog writing style
+
+- Use simple, explicit wording.
+- Introduce every technical term before using it.
+- Provide a concrete example for each new concept.
+- Avoid vague pronouns such as "it" when the subject could be unclear.
+- Do not use internal implementation terms unless they have been explained.
+- Prefer plain descriptions over abstract phrases.
+- Replace parenthetical clauses written as "— ... —" with parentheses: "(...)".
+- Clearly distinguish provider-native fields from HarnessSpy concepts.
+- Preserve the author's voice and verify technical explanations against the implementation.
+
+For example, replace "it starts the turn" with "a `user` row starts the turn."
+Replace "the values are aggregated by behavior" with an explanation of which values are kept and which are added.
