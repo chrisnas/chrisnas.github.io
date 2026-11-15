@@ -30,6 +30,7 @@ This is the first post in a multi-part series:
 3. [Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
 4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. [Beyond hooks: enriching live sessions with undocumented transcript logs](/posts/2026-10-09_beyond-hooks-transcript-logs/)
+6. [SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans](/posts/2026-11-15_sessionviewer-and-cursor/)
 
 ## Twenty-one windows into Cursor
 
@@ -179,7 +180,7 @@ The hook process must terminate quickly to avoid blocking Cursor. Because I want
 
 ![WPFSpyUI](WPFSpyUI.png)
 
-The files stored by the console app hook are used to replay previous sessions but to monitor live sessions, a local named pipe is used: the WPF opens and listens to it and the console sends the hook payload:
+The files stored by the console app hook are used to replay previous sessions. [SessionViewer uses a separate path to reconstruct provider-owned history](/posts/2026-11-15_sessionviewer-and-cursor/). To monitor live sessions, a local named pipe is used: the WPF opens and listens to it and the console sends the hook payload:
 
 ```csharp
 public sealed class NamedPipePayloadSink(
@@ -431,6 +432,9 @@ At this point I had a safe stream of JSON payloads and a viewer receiving them. 
 
 - [Part 2: Rebuilding the Agent conversation](/posts/2026-09-14_rebuilding-cursor-conversation/)
 - [Part 3: Spying on Claude Code](/posts/2026-09-20_spying-on-claude-code-hooks/)
+- [Part 4: Spying on GitHub Copilot twice](/posts/2026-09-27_spying-on-github-copilot-twice/)
+- [Part 5: Beyond hooks](/posts/2026-10-09_beyond-hooks-transcript-logs/)
+- [Part 6: SessionViewer and Cursor](/posts/2026-11-15_sessionviewer-and-cursor/)
 - [Cursor hooks documentation](https://cursor.com/docs/hooks)
 - [Cursor third-party hooks compatibility](https://cursor.com/docs/reference/third-party-hooks)
 - Corresponding source code: `CursorSpy/POC` in my [HarnessSpy repository](https://github.com/chrisnas/HarnessSpy/tree/main/POC)

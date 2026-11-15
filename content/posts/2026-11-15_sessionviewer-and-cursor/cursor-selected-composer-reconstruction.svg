@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="890" viewBox="0 0 1280 890" role="img" aria-labelledby="title description">
+  <title id="title">Following one selected Cursor Composer through SQLite</title>
+  <desc id="description">A forensic lookup path follows one selected Composer from workspace metadata to global session metadata, ordered bubble references, bubble bodies, turns, and events. The selected Composer list is not the complete workspace session list.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0f172a" flood-opacity=".12"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#475569"/>
+    </marker>
+    <style>
+      .title{font:700 34px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#0f172a}
+      .subtitle{font:18px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#475569}
+      .lane{font:700 15px system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.08em}
+      .step{font:700 19px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#0f172a}
+      .label{font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#1e293b}
+      .text{font:14px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#475569}
+      .small{font:14px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#64748b}
+      .mono{font:14px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#334155}
+      .monoSmall{font:13px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#334155}
+      .monoTiny{font:11.5px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#334155}
+      .card{fill:#fff;stroke-width:2;filter:url(#shadow)}
+      .workspace{stroke:#10b981}
+      .local{stroke:#f59e0b}
+      .join{stroke:#64748b}
+      .global{stroke:#3b82f6}
+      .output{stroke:#8b5cf6}
+      .number{font:700 17px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#fff;text-anchor:middle;dominant-baseline:middle}
+      .flow{fill:none;stroke:#475569;stroke-width:3;marker-end:url(#arrow)}
+      .relation{font:13px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#475569;text-anchor:middle}
+      .divider{stroke:#cbd5e1;stroke-width:1}
+      .noteTitle{font:700 15px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#92400e}
+      .noteText{font:14px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#78350f}
+    </style>
+  </defs>
+
+  <rect width="1280" height="890" fill="url(#background)"/>
+
+  <text class="title" x="40" y="52">Following one selected Cursor Composer through SQLite</text>
+  <text class="subtitle" x="40" y="84">A forensic lookup path from workspace selection to global session metadata, ordered bubbles, turns, and events.</text>
+
+  <rect x="40" y="106" width="1200" height="36" rx="18" fill="#d1fae5"/>
+  <text class="lane" x="62" y="130" fill="#047857">WORKSPACE IDENTITY</text>
+
+  <rect class="card workspace" x="40" y="166" width="470" height="168" rx="18"/>
+  <circle cx="76" cy="200" r="20" fill="#059669"/>
+  <text class="number" x="76" y="201">1</text>
+  <text class="step" x="110" y="207">Workspace manifest</text>
+  <line class="divider" x1="64" y1="228" x2="486" y2="228"/>
+  <text class="mono" x="64" y="258">workspaceStorage\2f4a4dd9...\workspace.json</text>
+  <text class="mono" x="64" y="287">"folder": "file:///c%3A/dev/dd-win-prof"</text>
+  <text class="text" x="64" y="315">The storage directory name is the workspace ID.</text>
+
+  <path class="flow" d="M510 264H668"/>
+  <text class="relation" x="589" y="224">normalize URI</text>
+
+  <rect class="card workspace" x="680" y="166" width="560" height="168" rx="18"/>
+  <circle cx="716" cy="200" r="20" fill="#059669"/>
+  <text class="number" x="716" y="201">2</text>
+  <text class="step" x="750" y="207">Resolved workspace</text>
+  <line class="divider" x1="704" y1="228" x2="1216" y2="228"/>
+  <text class="mono" x="704" y="258">workspaceId = 2f4a4dd9b247ee19ce12fb78b89e3710</text>
+  <text class="mono" x="704" y="287">workspacePath = C:\dev\dd-win-prof</text>
+  <text class="text" x="704" y="319">This identifies where sessions belong.</text>
+
+  <rect x="40" y="366" width="1200" height="36" rx="18" fill="#dbeafe"/>
+  <text class="lane" x="62" y="390" fill="#1d4ed8">CONVERSATION LOOKUP AND RECONSTRUCTION</text>
+
+  <rect class="card local" x="40" y="430" width="210" height="286" rx="18"/>
+  <circle cx="76" cy="466" r="20" fill="#d97706"/>
+  <text class="number" x="76" y="467">3</text>
+  <text class="step" x="110" y="473">Selected IDs</text>
+  <line class="divider" x1="64" y1="494" x2="226" y2="494"/>
+  <text class="label" x="64" y="524">Workspace state.vscdb</text>
+  <text class="monoSmall" x="64" y="552">ItemTable</text>
+  <text class="monoSmall" x="64" y="575">composer.composerData</text>
+  <text class="label" x="64" y="610">selectedComposerIds[]</text>
+  <text class="monoSmall" x="64" y="636">90f37e83-...</text>
+  <text class="monoSmall" x="64" y="658">050aff2e-...</text>
+  <text class="monoSmall" x="64" y="680">ad9b6b12-...</text>
+  <text class="small" x="64" y="706">Each value becomes X.</text>
+
+  <path class="flow" d="M250 576H298"/>
+  <text class="relation" x="274" y="540">X</text>
+
+  <rect class="card global" x="310" y="430" width="200" height="286" rx="18"/>
+  <circle cx="346" cy="466" r="20" fill="#2563eb"/>
+  <text class="number" x="346" y="467">4</text>
+  <text class="step" x="380" y="473">Session shell</text>
+  <line class="divider" x1="334" y1="494" x2="486" y2="494"/>
+  <text class="label" x="334" y="524">Global state.vscdb</text>
+  <text class="monoSmall" x="334" y="554">composerHeaders</text>
+  <text class="monoSmall" x="334" y="580">composerId = X</text>
+  <text class="text" x="334" y="616">title</text>
+  <text class="text" x="334" y="638">timestamps</text>
+  <text class="text" x="334" y="660">workspace / model</text>
+  <text class="text" x="334" y="682">mode</text>
+  <text class="text" x="334" y="704">parent / subagent</text>
+
+  <path class="flow" d="M510 576H558"/>
+  <text class="relation" x="534" y="540">same X</text>
+
+  <rect class="card global" x="570" y="430" width="250" height="286" rx="18"/>
+  <circle cx="606" cy="466" r="20" fill="#2563eb"/>
+  <text class="number" x="606" y="467">5</text>
+  <text class="step" x="640" y="473">Ordered headers</text>
+  <line class="divider" x1="594" y1="494" x2="796" y2="494"/>
+  <text class="label" x="594" y="524">Global cursorDiskKV</text>
+  <text class="monoSmall" x="594" y="554">key = composerData:X</text>
+  <text class="label" x="594" y="590">Conversation order</text>
+  <text class="monoTiny" x="594" y="618">fullConversationHeadersOnly[n]</text>
+  <text class="monoSmall" x="594" y="642">.bubbleId = B</text>
+  <text class="monoSmall" x="594" y="666">.type = 1 | 2</text>
+  <text class="small" x="594" y="688">1 = user</text>
+  <text class="small" x="594" y="707">2 = assistant</text>
+
+  <path class="flow" d="M820 576H868"/>
+  <text class="relation" x="844" y="540">X + B</text>
+
+  <rect class="card global" x="880" y="430" width="210" height="286" rx="18"/>
+  <circle cx="916" cy="466" r="20" fill="#2563eb"/>
+  <text class="number" x="916" y="467">6</text>
+  <text class="step" x="950" y="473">Bubble body</text>
+  <line class="divider" x1="904" y1="494" x2="1066" y2="494"/>
+  <text class="label" x="904" y="524">Global cursorDiskKV</text>
+  <text class="monoSmall" x="904" y="554">key = bubbleId:X:B</text>
+  <text class="text" x="904" y="592">text / content</text>
+  <text class="text" x="904" y="616">allThinkingBlocks</text>
+  <text class="text" x="904" y="640">toolFormerData / results</text>
+  <text class="text" x="904" y="664">requestId / modelCallId</text>
+  <text class="text" x="904" y="688">toolCallId / status</text>
+
+  <path class="flow" d="M1090 576H1138"/>
+
+  <rect class="card output" x="1150" y="430" width="90" height="286" rx="18"/>
+  <circle cx="1195" cy="466" r="20" fill="#7c3aed"/>
+  <text class="number" x="1195" y="467">7</text>
+  <text class="label" x="1195" y="524" text-anchor="middle">Turn</text>
+  <text class="label" x="1195" y="549" text-anchor="middle">+</text>
+  <text class="label" x="1195" y="574" text-anchor="middle">events</text>
+  <text class="small" x="1195" y="620" text-anchor="middle">prompt</text>
+  <text class="small" x="1195" y="642" text-anchor="middle">thought</text>
+  <text class="small" x="1195" y="664" text-anchor="middle">tool</text>
+  <text class="small" x="1195" y="686" text-anchor="middle">response</text>
+
+  <rect x="40" y="756" width="1200" height="104" rx="16" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <text class="noteTitle" x="64" y="789">Important</text>
+  <text class="noteText" x="64" y="816">selectedComposerIds is workspace UI state, not the complete session list.</text>
+  <text class="noteText" x="64" y="839">To enumerate every session, query global composerHeaders by workspaceId; then use each composerId as X in the chain above.</text>
+</svg>

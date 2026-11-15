@@ -10,17 +10,17 @@ cover:
   relative: true
 ---
 
-The first two posts of this series built a [passive Cursor observer](/posts/2026-08-23_spying-on-cursor-hooks/) and [rebuilt its flat hook stream into a conversation](/posts/2026-09-14_rebuilding-cursor-conversation/). The [third post](/posts/2026-09-20_spying-on-claude-code-hooks/) detaile the support of Claude Code, and [the fourth](/posts/2026-09-27_spying-on-github-copilot-twice/) added GitHub Copilot's two hook surfaces into the picture. Every one of those posts ended at the same wall: hooks are excellent at live structure (sessions, turns, lifecycle, and tool boundaries) but each harness keeps some details for itself.
+The first two posts of this series built a [passive Cursor observer](/posts/2026-08-23_spying-on-cursor-hooks/) and [rebuilt its flat hook stream into a conversation](/posts/2026-09-14_rebuilding-cursor-conversation/). The [third post](/posts/2026-09-20_spying-on-claude-code-hooks/) detailed the support of Claude Code, and [the fourth](/posts/2026-09-27_spying-on-github-copilot-twice/) added GitHub Copilot's two hook surfaces into the picture. Every one of those posts ended at the same wall: hooks are excellent at live structure (sessions, turns, lifecycle, and tool boundaries) but each harness keeps some details for itself.
 
 Cursor's hooks do not identify manually selected skills, Claude has no hook for visible thinking/usage/cost and Copilot CLI omits the assistant's final answer and reasoning, authoritative MCP identity, permission outcomes and provider accounting. 
 
-During my research, some hooks payload in all three harnesses pointed me at *transcript* files:
+During my research, some hook payloads in all three harnesses pointed me at *transcript* files:
 
 - Claude's `SubagentStop` provides an `agent_transcript_path`;
 - Copilot CLI's `agentStop` provides a `transcriptPath`;
 - Cursor eventually sets `transcript_path` in a few events.
 
-Those files are the agent's own **transcript logs**: undocumented, version-dependent JSONL that each harness writes for itself, row by row; each row being a json element. They are not a strict duplicate of hooks: their value lies in what the hook payload never contained: thinking, usage and cost, exact MCP attribution, and subagent sidechain detail.
+Those files are the agent's own **transcript logs**: undocumented, version-dependent JSONL that each harness writes for itself, row by row, with each row containing one JSON object. They are not a strict duplicate of hooks: their value lies in what the hook payload never contained: thinking, usage and cost, exact MCP attribution, and subagent sidechain detail.
 
 This post is about how to use them safely to provide valuable additional details. It is the fifth in the series:
 
@@ -29,6 +29,7 @@ This post is about how to use them safely to provide valuable additional details
 3. [Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
 4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. **Beyond hooks: enriching live sessions with undocumented transcript logs** (this post)
+6. [SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans](/posts/2026-11-15_sessionviewer-and-cursor/)
 
 There is a temptation here that I want to reject up front. Once you discover that the harness writes a rich transcript, you could throw the hooks away and just parse the file. I did not do that, and this post is largely about why.
 
@@ -247,7 +248,7 @@ Each sidecar row wraps the untouched `raw` JSON with its source path, dialect,
 
 HarnessSpy keeps these `generation:offset` identifiers in memory so that polling or backfilling the same transcript does not append a row twice. After an application restart, that in-memory set is empty, but the sidecar may already contain rows captured by the previous HarnessSpy process. The capture store therefore reads the existing sidecar once and rebuilds—or seeds—the set of known identifiers. If the transcript is then rediscovered and backfilled from the beginning, previously captured rows are skipped and only new rows are appended.
 
-The manifest also records an `EnrichmentCaptureState`. A file that existed when I discovered it is `LiveCaptured`; a path that was already gone by the time the hook named it is `MissedBeforeCapture`. That distinction is available to diagnostics and future replay UI, but the current WPF tree does **not** display a capture-state badge yet.
+The manifest also records an `EnrichmentCaptureState`. A file that existed when I discovered it is `LiveCaptured`; a path that was already gone by the time the hook named it is `MissedBeforeCapture`. That distinction is available to diagnostics and a possible live-replay UI, but the current WPF tree does **not** display a capture-state badge yet. [SessionViewer](/posts/2026-11-15_sessionviewer-and-cursor/) reconstructs provider-owned history separately and does not read these sidecars.
 
 ## Three parsers, three levels of generosity
 
@@ -471,7 +472,7 @@ Every one of those details retains its source and confidence, and none needs a d
 
 ![CopilotSummary](CopilotSummary.png) 
 
-That is also where this series ends. These five posts have been about **live observation**: a hook fires, HarnessSpy reacts, and a transcript file fills in the gaps in real time. 
+That is where the live-observation arc ends. These first five posts follow a hook as it fires, HarnessSpy as it reacts, and a transcript file as it fills in the gaps in real time. [Part 6](/posts/2026-11-15_sessionviewer-and-cursor/) changes the point of view: SessionViewer reconstructs saved Cursor history directly from provider files and databases, even when HarnessSpy was not running.
 
 ## References
 
@@ -479,6 +480,7 @@ That is also where this series ends. These five posts have been about **live obs
 - [Part 2: Rebuilding the Agent conversation](/posts/2026-09-14_rebuilding-cursor-conversation/)
 - [Part 3: Spying on Claude Code](/posts/2026-09-20_spying-on-claude-code-hooks/)
 - [Part 4: Spying on GitHub Copilot twice](/posts/2026-09-27_spying-on-github-copilot-twice/)
+- [Part 6: SessionViewer and Cursor](/posts/2026-11-15_sessionviewer-and-cursor/)
 - [Cursor transcript extraction contract](https://github.com/chrisnas/HarnessSpy/blob/main/docs/Transcripts_Cursor.md)
 - [Claude transcript extraction contract](https://github.com/chrisnas/HarnessSpy/blob/main/docs/Transcripts_Claude.md)
 - [Copilot transcript extraction contract](https://github.com/chrisnas/HarnessSpy/blob/main/docs/Transcripts_Copilot.md)

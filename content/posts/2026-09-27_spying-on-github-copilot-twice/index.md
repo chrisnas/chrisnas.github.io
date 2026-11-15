@@ -14,7 +14,7 @@ The [first post of this series](/posts/2026-08-23_spying-on-cursor-hooks/) captu
 
 GitHub Copilot exposes hooks in **two completely different places**: the **Copilot CLI** and **Visual Studio Code** (its agent-hooks Preview). Same provider identity, same `CopilotSpy.App`, same named pipe—but two payload dialects with almost opposite strengths. The CLI has a broad, chatty lifecycle (permissions, notifications, errors, compaction, a transformed-prompt event) yet almost no stable identifiers in its **hook payloads**: no turn ID, no tool-call ID, and MCP tool names flattened into an ambiguous string. VS Code is the mirror image: it restores exact `tool_use_id` and `agent_id`, but on a thin eight-event surface with no permissions, no errors and no transcript pointer.
 
-This post focuses on those hook contracts. The current `CopilotSpy.App` can also use the CLI's late `transcriptPath` to tail `events.jsonl`, preserve a sidecar and enrich the hook tree but it will be covered in Part 5; VS Code remains hooks-only.
+This post focuses on those hook contracts. The current `CopilotSpy.App` can also use the CLI's late `transcriptPath` to tail `events.jsonl`, preserve a sidecar and enrich the hook tree, as [Part 5](/posts/2026-10-09_beyond-hooks-transcript-logs/) explains; VS Code remains hooks-only.
 
 This is the fourth post in the series:
 
@@ -23,6 +23,7 @@ This is the fourth post in the series:
 3. [Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
 4. **Spying on GitHub Copilot twice: CLI hooks versus VS Code** (this post)
 5. [Beyond hooks: enriching live sessions with undocumented transcript logs](/posts/2026-10-09_beyond-hooks-transcript-logs/)
+6. [SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans](/posts/2026-11-15_sessionviewer-and-cursor/)
 
 
 
@@ -307,7 +308,7 @@ Tool name equality is useless here, so HarnessSpy matches name by the strongest 
 
 The file name is inferred out of a structured `file_path`/`path`, an `apply_patch` header (`*** Update File: …`), or the notification's message text; a `Run command:` message that embeds a Windows path is bound by its command and never mistaken for a file. Two in-flight MCP calls that share a name are differentiated by their arguments alone, so permissions that arrive out of order still land on the right request.
 
-Hooks alone do not reveal whether the user granted the permission. CLI transcript enrichment can later attach `permission.completed` to the same tool request as the next post will explain.
+Hooks alone do not reveal whether the user granted the permission. CLI transcript enrichment can later attach `permission.completed` to the same tool request, as [Part 5](/posts/2026-10-09_beyond-hooks-transcript-logs/) explains.
 
 ## What only the CLI tells you
 
@@ -339,11 +340,11 @@ Subagents get the same treatment: `agent_id` is present on both `SubagentStart` 
 
 HarnessSpy reads the whole `tool_input.files` array and feeds every entry into the written-files summary, instead of chasing one path at a time.
 
-The price for that precision is reach. VS Code gives me only eight events. There is no `permissionRequest`, no `notification`, no `postToolUseFailure`, no `errorOccurred`, no `userPromptTransformed`, and no `sessionEnd` bracket—just `Stop`. And, crucially for the next post, **no transcript pointer at all**. VS Code is, and remains, hooks-only; but it is still a preview so who knows what will be available in the future. 
+The price for that precision is reach. VS Code gives me only eight events. There is no `permissionRequest`, no `notification`, no `postToolUseFailure`, no `errorOccurred`, no `userPromptTransformed`, and no `sessionEnd` bracket—just `Stop`. And, crucially for [Part 5](/posts/2026-10-09_beyond-hooks-transcript-logs/), **no transcript pointer at all**. VS Code is, and remains, hooks-only; but it is still a preview so who knows what will be available in the future.
 
 ## What Copilot does not give you
 
-Laying the two Copilot surfaces beside Cursor and Claude makes the **hook contracts** precise. This table deliberately excludes what Copilot CLI transcript enrichment and the separate SessionViewer can recover later:
+Laying the two Copilot surfaces beside Cursor and Claude makes the **hook contracts** precise. This table deliberately excludes what Copilot CLI transcript enrichment and the separate [SessionViewer](/posts/2026-11-15_sessionviewer-and-cursor/) can recover:
 
 | Capability               | Cursor                   | Claude Code                    | Copilot CLI                                                                   | Copilot VS Code       |
 | ------------------------ | ------------------------ | ------------------------------ | ----------------------------------------------------------------------------- | --------------------- |
@@ -364,7 +365,7 @@ Three absences should be pointed out:
 
 - It has **no inner execution span**—nothing like Cursor's dedicated `beforeShellExecution`/`beforeMCPExecution` pair that timed the transport layer separately from the model's tool call. 
 
-- And it has **no batch event**: Claude's `PostToolBatch` gives an authoritative parallel grouping, whereas Copilot parallelism is only inferred from overlapping intervals, exactly as in the second post. Finally, VS Code has no transcript pointer, which limits how much the next post can add to it.
+- And it has **no batch event**: Claude's `PostToolBatch` gives an authoritative parallel grouping, whereas Copilot parallelism is only inferred from overlapping intervals, exactly as in the second post. Finally, VS Code has no transcript pointer, which limits how much [Part 5](/posts/2026-10-09_beyond-hooks-transcript-logs/) can add to it.
 
 ## Conclusion
 
@@ -382,13 +383,15 @@ GitHub Copilot taught me that a provider name is not a unique observability cont
 4. **Precision and reach trade off.** VS Code's exact `tool_use_id` and `agent_id` come on a thin eight-event surface with no permissions, no errors and no transcript; the CLI's rich lifecycle comes without stable IDs.
    
 
-The next post leaves hooks behind—well, almost—to explain how the undocumented transcript files could enrich each harness spy tool live tree.
+[Part 5](/posts/2026-10-09_beyond-hooks-transcript-logs/) leaves hooks behind (well, almost) to explain how undocumented transcript files can enrich each harness spy tool's live tree.
 
 ## References
 
 - [Part 1: Spying on Cursor: agent hooks, payloads and a simple observer](/posts/2026-08-23_spying-on-cursor-hooks/)
 - [Part 2: Rebuilding the Agent conversation](/posts/2026-09-14_rebuilding-cursor-conversation/)
 - [Part 3: Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
+- [Part 5: Beyond hooks](/posts/2026-10-09_beyond-hooks-transcript-logs/)
+- [Part 6: SessionViewer and Cursor](/posts/2026-11-15_sessionviewer-and-cursor/)
 - [HarnessSpy source code](https://github.com/chrisnas/HarnessSpy)
 - [GitHub Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
 - [VS Code agent hooks reference](https://code.visualstudio.com/docs/agents/reference/hooks-reference)

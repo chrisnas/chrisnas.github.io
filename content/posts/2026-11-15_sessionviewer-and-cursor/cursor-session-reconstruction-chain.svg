@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="930" viewBox="0 0 1600 930" role="img" aria-labelledby="title description">
+  <title id="title">Cursor Desktop workspace to session-detail reconstruction chain</title>
+  <desc id="description">The Cursor Desktop branch loads workspace and Composer shells first, then loads SQLite bubble bodies when one session is expanded. JSONL transcript turns can already be present before Desktop hydration. A relationship band names the stored keys used to join adjacent stages.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#0f172a" flood-opacity=".12"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0L12 6L0 12Z" fill="#475569"/>
+    </marker>
+    <style>
+      .title{font:700 34px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#0f172a}
+      .subtitle{font:18px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#475569}
+      .lane{font:700 16px system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:.08em}
+      .step{font:700 21px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#0f172a}
+      .label{font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#1e293b}
+      .text{font:15px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#475569}
+      .mono{font:14px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#334155}
+      .card{fill:#fff;stroke:#cbd5e1;stroke-width:2;filter:url(#shadow)}
+      .fast{fill:#ecfdf5;stroke:#10b981;stroke-width:2}
+      .demand{fill:#eff6ff;stroke:#3b82f6;stroke-width:2}
+      .detail{fill:#f5f3ff;stroke:#8b5cf6;stroke-width:2}
+      .number{font:700 18px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#fff;text-anchor:middle;dominant-baseline:middle}
+      .flow{fill:none;stroke:#475569;stroke-width:3;marker-end:url(#arrow)}
+      .divider{stroke:#cbd5e1;stroke-width:1}
+      .relationTitle{font:700 16px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#fff}
+      .relationMono{font:14px ui-monospace,SFMono-Regular,Consolas,monospace;fill:#bfdbfe}
+      .relationText{font:14px system-ui,-apple-system,"Segoe UI",sans-serif;fill:#cbd5e1}
+    </style>
+  </defs>
+
+  <rect width="1600" height="930" fill="url(#background)"/>
+  <text class="title" x="70" y="66">How SessionViewer loads the Cursor Desktop branch</text>
+  <text class="subtitle" x="70" y="99">Load workspace and Composer shells first; read Desktop bubble bodies when one session is expanded.</text>
+
+  <rect x="70" y="130" width="580" height="38" rx="19" fill="#d1fae5"/>
+  <text class="lane" x="92" y="155" fill="#047857">FAST STARTUP - CATALOG SHELLS</text>
+  <rect x="690" y="130" width="840" height="38" rx="19" fill="#dbeafe"/>
+  <text class="lane" x="712" y="155" fill="#1d4ed8">ON DEMAND - SELECT OR EXPAND ONE SESSION</text>
+
+  <rect class="card fast" x="70" y="205" width="270" height="420" rx="18"/>
+  <circle cx="104" cy="241" r="20" fill="#059669"/>
+  <text class="number" x="104" y="242">1</text>
+  <text class="step" x="137" y="248">Workspace</text>
+  <line class="divider" x1="92" y1="270" x2="318" y2="270"/>
+  <text class="label" x="92" y="300">Primary source</text>
+  <text class="mono" x="92" y="328">workspaceStorage\&lt;id&gt;\</text>
+  <text class="mono" x="92" y="350">workspace.json</text>
+  <text class="text" x="92" y="382">Maps Cursor's storage ID to a</text>
+  <text class="text" x="92" y="403">folder or .code-workspace file.</text>
+  <text class="label" x="92" y="448">Corroborating evidence</text>
+  <text class="mono" x="92" y="476">workspaceIdentifier</text>
+  <text class="mono" x="92" y="498">workspace roots / cwd</text>
+  <text class="mono" x="92" y="520">transcript project key</text>
+
+  <rect class="card fast" x="380" y="205" width="270" height="420" rx="18"/>
+  <circle cx="414" cy="241" r="20" fill="#059669"/>
+  <text class="number" x="414" y="242">2</text>
+  <text class="step" x="447" y="248">Sessions</text>
+  <line class="divider" x1="402" y1="270" x2="628" y2="270"/>
+  <text class="label" x="402" y="300">Composer shell sources</text>
+  <text class="mono" x="402" y="328">composerHeaders</text>
+  <text class="mono" x="402" y="350">composerData:&lt;composerId&gt;</text>
+  <text class="mono" x="402" y="372">ItemTable fallbacks</text>
+  <text class="label" x="402" y="417">Read only metadata</text>
+  <text class="text" x="402" y="445">ID - title - timestamps</text>
+  <text class="text" x="402" y="467">workspace - model - mode</text>
+  <text class="text" x="402" y="489">parent/child relationships</text>
+
+  <rect class="card demand" x="690" y="205" width="270" height="420" rx="18"/>
+  <circle cx="724" cy="241" r="20" fill="#2563eb"/>
+  <text class="number" x="724" y="242">3</text>
+  <text class="step" x="757" y="248">Bubbles</text>
+  <line class="divider" x1="712" y1="270" x2="938" y2="270"/>
+  <text class="label" x="712" y="300">Exact selected-session query</text>
+  <text class="mono" x="712" y="328">cursorDiskKV.key LIKE</text>
+  <text class="mono" x="712" y="350">'bubbleId:&lt;composerId&gt;:%'</text>
+  <text class="label" x="712" y="395">Identity rule</text>
+  <text class="text" x="712" y="423">Keep the complete classified key:</text>
+  <text class="mono" x="712" y="451">bubbleId:composer:bubble</text>
+  <rect x="712" y="477" width="226" height="102" rx="10" fill="#fff" stroke="#bfdbfe"/>
+  <text class="label" x="728" y="505">Never reload by rowid</text>
+  <text class="text" x="728" y="530">Current Cursor schemas may</text>
+  <text class="text" x="728" y="552">not declare key as a PK.</text>
+
+  <rect class="card demand" x="1000" y="205" width="270" height="420" rx="18"/>
+  <circle cx="1034" cy="241" r="20" fill="#2563eb"/>
+  <text class="number" x="1034" y="242">4</text>
+  <text class="step" x="1067" y="248">Turns</text>
+  <line class="divider" x1="1022" y1="270" x2="1248" y2="270"/>
+  <text class="label" x="1022" y="300">Order comes from Composer</text>
+  <text class="mono" x="1022" y="328">fullConversationHeadersOnly</text>
+  <text class="mono" x="1022" y="350">conversationHeaders</text>
+  <text class="text" x="1022" y="382">Do not sort bubbles by key.</text>
+  <text class="label" x="1022" y="427">Grouping rule</text>
+  <rect x="1022" y="447" width="226" height="132" rx="10" fill="#fff" stroke="#bfdbfe"/>
+  <text class="mono" x="1038" y="476">type = 1  user</text>
+  <text class="text" x="1038" y="499">starts the next turn</text>
+  <text class="mono" x="1038" y="530">type = 2  assistant</text>
+  <text class="text" x="1038" y="553">joins the current turn</text>
+
+  <rect class="card detail" x="1310" y="205" width="220" height="420" rx="18"/>
+  <circle cx="1344" cy="241" r="20" fill="#7c3aed"/>
+  <text class="number" x="1344" y="242">5</text>
+  <text class="step" x="1377" y="248">Details</text>
+  <line class="divider" x1="1332" y1="270" x2="1508" y2="270"/>
+  <text class="label" x="1332" y="300">Bubble fields</text>
+  <text class="mono" x="1332" y="328">text / content</text>
+  <text class="mono" x="1332" y="350">allThinkingBlocks</text>
+  <text class="mono" x="1332" y="372">toolFormerData</text>
+  <text class="mono" x="1332" y="394">toolResults</text>
+  <text class="label" x="1332" y="439">Projected events</text>
+  <text class="text" x="1332" y="467">prompt</text>
+  <text class="text" x="1332" y="489">thought</text>
+  <text class="text" x="1332" y="511">tool request/result</text>
+  <text class="text" x="1332" y="533">assistant response</text>
+
+  <path class="flow" d="M340 410H369"/>
+  <path class="flow" d="M650 410H679"/>
+  <path class="flow" d="M960 410H989"/>
+  <path class="flow" d="M1270 410H1299"/>
+
+  <rect x="70" y="665" width="1460" height="220" rx="16" fill="#0f172a"/>
+  <text class="relationTitle" x="96" y="700">RELATIONS BETWEEN ADJACENT NOTIONS</text>
+  <line x1="430" y1="720" x2="430" y2="858" stroke="#334155"/>
+  <line x1="790" y1="720" x2="790" y2="858" stroke="#334155"/>
+  <line x1="1150" y1="720" x2="1150" y2="858" stroke="#334155"/>
+
+  <text class="relationTitle" x="96" y="748">1 &lt;-&gt; 2 - Workspace / session</text>
+  <text class="relationMono" x="96" y="780">workspaceIdentifier.id/path</text>
+  <text class="relationMono" x="96" y="804">workspaceStorage/&lt;id&gt;/workspace.json</text>
+  <text class="relationText" x="96" y="832">Match storage ID, normalized folder or root.</text>
+
+  <text class="relationTitle" x="456" y="748">2 &lt;-&gt; 3 - Session / bubble</text>
+  <text class="relationMono" x="456" y="780">composerId</text>
+  <text class="relationMono" x="456" y="804">bubbleId:&lt;composerId&gt;:&lt;bubbleId&gt;</text>
+  <text class="relationText" x="456" y="832">Composer ID is embedded in every bubble key.</text>
+
+  <text class="relationTitle" x="816" y="748">3 &lt;-&gt; 4 - Bubble / turn</text>
+  <text class="relationMono" x="816" y="780">fullConversationHeadersOnly[].bubbleId</text>
+  <text class="relationMono" x="816" y="804">header order + type (1 user / 2 assistant)</text>
+  <text class="relationText" x="816" y="832">The header resolves and groups each bubble body.</text>
+
+  <text class="relationTitle" x="1176" y="748">4 &lt;-&gt; 5 - Turn / details</text>
+  <text class="relationMono" x="1176" y="780">requestId / generationId</text>
+  <text class="relationMono" x="1176" y="804">toolCallId / modelCallId</text>
+  <text class="relationText" x="1176" y="832">IDs attach thoughts, tools, results and responses.</text>
+</svg>

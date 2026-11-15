@@ -25,6 +25,7 @@ This is the third post in a multi-part series:
 3. **Spying on Claude Code: more lifecycle events, different blind spots** (this post)
 4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. [Beyond hooks: enriching live sessions with undocumented transcript logs](/posts/2026-10-09_beyond-hooks-transcript-logs/)
+6. [SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans](/posts/2026-11-15_sessionviewer-and-cursor/)
 
 Claude reuses the same architecture introduced in the first two posts: one short-lived console hook forwards observations to the long-lived WPF viewer. I will not repeat the stdin, named-pipe and envelope mechanics here.
 
@@ -356,7 +357,7 @@ Claude exposes `transcript_path` for the main session and `agent_transcript_path
 
 They are undocumented, version-dependent and short-lived. Discovering a path is only the first problem; reading a file while Claude writes or deletes it and binding its rows back to hook events are harder.
 
-A forthcoming post will explain why HarnessSpy treats transcripts as a **secondary enrichment source** instead of replacing hooks with them.
+[Part 5](/posts/2026-10-09_beyond-hooks-transcript-logs/) explains why HarnessSpy treats transcripts as a **secondary enrichment source** instead of replacing hooks with them.
 
 ## What I still cannot claim
 
@@ -382,6 +383,9 @@ The [next post](/posts/2026-09-27_spying-on-github-copilot-twice/) turns to GitH
 
 - [Part 1: Spying on Cursor: agent hooks, payloads and a simple observer](/posts/2026-08-23_spying-on-cursor-hooks/)
 - [Part 2: Rebuilding the Agent conversation](/posts/2026-09-14_rebuilding-cursor-conversation/)
+- [Part 4: Spying on GitHub Copilot twice](/posts/2026-09-27_spying-on-github-copilot-twice/)
+- [Part 5: Beyond hooks](/posts/2026-10-09_beyond-hooks-transcript-logs/)
+- [Part 6: SessionViewer and Cursor](/posts/2026-11-15_sessionviewer-and-cursor/)
 - [HarnessSpy source code](https://github.com/chrisnas/HarnessSpy)
 - [Claude Code hooks reference](https://code.claude.com/docs/en/hooks)
 - [Claude Code hooks guide](https://code.claude.com/docs/en/hooks-guide)
