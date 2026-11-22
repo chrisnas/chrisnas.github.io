@@ -25,6 +25,7 @@ This is the second post in the series:
 4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. [Beyond hooks: enriching live sessions with undocumented transcript logs](/posts/2026-10-09_beyond-hooks-transcript-logs/)
 6. [SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans](/posts/2026-11-15_sessionviewer-and-cursor/)
+7. [SessionViewer and Claude Code: transcripts, subagents, usage and plans](/posts/2026-11-22_sessionviewer-and-claude-code/)
 
 The POC from the first post has since evolved into the shared [HarnessSpy](https://github.com/chrisnas/HarnessSpy) implementation used here. The capture remains passive; this post focuses on what happens **after** a payload reaches the viewer.
 
@@ -434,5 +435,6 @@ The [next post](/posts/2026-09-20_spying-on-claude-code-hooks/) shows what happe
 - [Part 4: Spying on GitHub Copilot twice](/posts/2026-09-27_spying-on-github-copilot-twice/)
 - [Part 5: Beyond hooks](/posts/2026-10-09_beyond-hooks-transcript-logs/)
 - [Part 6: SessionViewer and Cursor](/posts/2026-11-15_sessionviewer-and-cursor/)
+- [Part 7: SessionViewer and Claude Code](/posts/2026-11-22_sessionviewer-and-claude-code/)
 - [HarnessSpy source code](https://github.com/chrisnas/HarnessSpy)
 - [Cursor hooks documentation](https://cursor.com/docs/hooks)

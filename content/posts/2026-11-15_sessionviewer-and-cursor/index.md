@@ -27,7 +27,7 @@ This is the sixth post in the series, and the first of three about local history
 4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. [Beyond hooks: enriching live sessions with undocumented transcript logs](/posts/2026-10-09_beyond-hooks-transcript-logs/)
 6. **SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans** (this post)
-7. SessionViewer and Claude Code: transcripts, subagents, usage and plans
+7. [SessionViewer and Claude Code: transcripts, subagents, usage and plans](/posts/2026-11-22_sessionviewer-and-claude-code/)
 8. SessionViewer and Copilot CLI: decoding events.jsonl, turns, usage and plans
 
 ## Where Cursor keeps the evidence
@@ -347,7 +347,7 @@ Cursor history is not one transcript waiting to be displayed:
 5. **Large history needs staged, reloadable evidence.** Startup reads Composer shells, session expansion loads Desktop bubbles, and the inspector reloads raw records only when needed.
 6. **A logical reconstruction still needs a path back to physical evidence.** CursorDBNavigator keeps the workspace, Composer, bubble, turn and event views connected to the original database table and key.
 
-The next post applies the same SessionViewer model to Claude Code, whose archive is split between prompt history, transcripts, subagents and plan artifacts.
+The [next post](/posts/2026-11-22_sessionviewer-and-claude-code/) applies the same SessionViewer model to Claude Code, whose archive is split between prompt history, transcripts, subagents and plan artifacts.
 
 ## References
 
@@ -360,3 +360,4 @@ The next post applies the same SessionViewer model to Claude Code, whose archive
 - [Part 3: Spying on Claude Code](/posts/2026-09-20_spying-on-claude-code-hooks/)
 - [Part 4: Spying on GitHub Copilot twice](/posts/2026-09-27_spying-on-github-copilot-twice/)
 - [Part 5: Beyond hooks](/posts/2026-10-09_beyond-hooks-transcript-logs/)
+- [Part 7: SessionViewer and Claude Code](/posts/2026-11-22_sessionviewer-and-claude-code/)

@@ -24,6 +24,7 @@ This is the fourth post in the series:
 4. **Spying on GitHub Copilot twice: CLI hooks versus VS Code** (this post)
 5. [Beyond hooks: enriching live sessions with undocumented transcript logs](/posts/2026-10-09_beyond-hooks-transcript-logs/)
 6. [SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans](/posts/2026-11-15_sessionviewer-and-cursor/)
+7. [SessionViewer and Claude Code: transcripts, subagents, usage and plans](/posts/2026-11-22_sessionviewer-and-claude-code/)
 
 
 
@@ -392,6 +393,7 @@ GitHub Copilot taught me that a provider name is not a unique observability cont
 - [Part 3: Spying on Claude Code: more lifecycle events, different blind spots](/posts/2026-09-20_spying-on-claude-code-hooks/)
 - [Part 5: Beyond hooks](/posts/2026-10-09_beyond-hooks-transcript-logs/)
 - [Part 6: SessionViewer and Cursor](/posts/2026-11-15_sessionviewer-and-cursor/)
+- [Part 7: SessionViewer and Claude Code](/posts/2026-11-22_sessionviewer-and-claude-code/)
 - [HarnessSpy source code](https://github.com/chrisnas/HarnessSpy)
 - [GitHub Copilot hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
 - [VS Code agent hooks reference](https://code.visualstudio.com/docs/agents/reference/hooks-reference)

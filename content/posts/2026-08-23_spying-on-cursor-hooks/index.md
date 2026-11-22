@@ -31,6 +31,7 @@ This is the first post in a multi-part series:
 4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. [Beyond hooks: enriching live sessions with undocumented transcript logs](/posts/2026-10-09_beyond-hooks-transcript-logs/)
 6. [SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans](/posts/2026-11-15_sessionviewer-and-cursor/)
+7. [SessionViewer and Claude Code: transcripts, subagents, usage and plans](/posts/2026-11-22_sessionviewer-and-claude-code/)
 
 ## Twenty-one windows into Cursor
 
@@ -435,6 +436,7 @@ At this point I had a safe stream of JSON payloads and a viewer receiving them. 
 - [Part 4: Spying on GitHub Copilot twice](/posts/2026-09-27_spying-on-github-copilot-twice/)
 - [Part 5: Beyond hooks](/posts/2026-10-09_beyond-hooks-transcript-logs/)
 - [Part 6: SessionViewer and Cursor](/posts/2026-11-15_sessionviewer-and-cursor/)
+- [Part 7: SessionViewer and Claude Code](/posts/2026-11-22_sessionviewer-and-claude-code/)
 - [Cursor hooks documentation](https://cursor.com/docs/hooks)
 - [Cursor third-party hooks compatibility](https://cursor.com/docs/reference/third-party-hooks)
 - Corresponding source code: `CursorSpy/POC` in my [HarnessSpy repository](https://github.com/chrisnas/HarnessSpy/tree/main/POC)

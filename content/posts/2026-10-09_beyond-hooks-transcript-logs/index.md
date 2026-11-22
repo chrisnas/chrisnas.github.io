@@ -30,6 +30,7 @@ This post is about how to use them safely to provide valuable additional details
 4. [Spying on GitHub Copilot twice: CLI hooks versus VS Code](/posts/2026-09-27_spying-on-github-copilot-twice/)
 5. **Beyond hooks: enriching live sessions with undocumented transcript logs** (this post)
 6. [SessionViewer and Cursor: reconstructing history from JSONL, SQLite and plans](/posts/2026-11-15_sessionviewer-and-cursor/)
+7. [SessionViewer and Claude Code: transcripts, subagents, usage and plans](/posts/2026-11-22_sessionviewer-and-claude-code/)
 
 There is a temptation here that I want to reject up front. Once you discover that the harness writes a rich transcript, you could throw the hooks away and just parse the file. I did not do that, and this post is largely about why.
 
@@ -481,6 +482,7 @@ That is where the live-observation arc ends. These first five posts follow a hoo
 - [Part 3: Spying on Claude Code](/posts/2026-09-20_spying-on-claude-code-hooks/)
 - [Part 4: Spying on GitHub Copilot twice](/posts/2026-09-27_spying-on-github-copilot-twice/)
 - [Part 6: SessionViewer and Cursor](/posts/2026-11-15_sessionviewer-and-cursor/)
+- [Part 7: SessionViewer and Claude Code](/posts/2026-11-22_sessionviewer-and-claude-code/)
 - [Cursor transcript extraction contract](https://github.com/chrisnas/HarnessSpy/blob/main/docs/Transcripts_Cursor.md)
 - [Claude transcript extraction contract](https://github.com/chrisnas/HarnessSpy/blob/main/docs/Transcripts_Claude.md)
 - [Copilot transcript extraction contract](https://github.com/chrisnas/HarnessSpy/blob/main/docs/Transcripts_Copilot.md)
