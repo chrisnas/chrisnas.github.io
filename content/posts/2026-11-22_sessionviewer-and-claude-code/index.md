@@ -2,7 +2,7 @@
 title: "SessionViewer and Claude Code: transcripts, subagents, usage and plans"
 date: 2026-11-22
 tags: ["AI", "Claude Code", "C#", ".NET", "agents", "sessions", "transcripts", "plans", "usage"]
-description: "How SessionViewer rebuilds Claude Code history from prompt history, main JSONL, subagents and Markdown plans, with examples observed in Claude Code 2.1.304."
+description: "How SessionViewer rebuilds Claude Code 2.1.x history from prompt history, main JSONL, subagents and Markdown plans."
 summary: "Claude Code stores local history across prompt history, transcripts, subagents and plan artifacts. This post explains how SessionViewer joins the surviving evidence and keeps uncertain or missing evidence visible."
 draft: false
 cover:
@@ -67,6 +67,20 @@ This record means that the prompt belongs to the discussion stored in `%USERPROF
 A workspace is the folder under which SessionViewer groups a session. Among the sources covered in this post, SessionViewer prefers Claude's `cwd` field from the normal main transcript. If that file does not supply `cwd`, SessionViewer tries one unique project path from `history.jsonl`, a successfully decoded project-directory name (for example, `C--repo` can represent `C:\repo`), and finally a subagent `cwd`. SessionViewer uses the `Unknown workspace` label when none of those sources supplies a usable path.
 
 Because the main transcript outranks subagent evidence, a subagent that changes directory cannot move its parent session to another workspace.
+
+SessionViewer merges a subagent transcript into its parent session by using the transcript's `parentSessionId` or `sessionId`, with the containing session directory as a fallback. In one Claude Code 2.1.330 session, two background agents also preserved exact parent-turn and parent-tool evidence:
+
+```text
+parent turn promptId=P
+├── Agent tool_use id=t1
+│   └── child agent A: promptId=P, meta toolUseId=t1
+└── Agent tool_use id=t2
+    └── child agent B: promptId=P, meta toolUseId=t2
+```
+
+The shared native `promptId` lets SessionViewer place both child transcripts in the parent turn without comparing timestamps. The child filenames and rows supply their `agentId`, while each `.meta.json` file supplies the exact parent `toolUseId`. SessionViewer currently keeps that tool ID as provenance rather than nesting the child transcript below the parent tool node.
+
+This exact turn binding depends on the child records carrying the parent `promptId`. Records without a prompt ID inherit only within the same subagent file or remain in an `agent:<agent-id>:unscoped` turn. SessionViewer does not use timestamps as a fallback for parentage: timestamps only order reconstructed events and turns.
 
 ## Turns are built around `promptId`
 
